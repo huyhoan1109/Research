@@ -38,7 +38,7 @@ from pycocotools import mask
 
 
 class REFER:
-    def __init__(self, data_root, dataset='refcoco', splitBy='unc'):
+    def __init__(self, data_root, image_root, dataset='refcoco', splitBy='unc'):
         # provide data_root folder which contains refclef, refcoco, refcoco+ and refcocog
         # also provide dataset name and splitBy information
         # e.g., dataset = 'refcoco', splitBy = 'unc'
@@ -46,9 +46,9 @@ class REFER:
         self.ROOT_DIR = osp.abspath(osp.dirname(__file__))
         self.DATA_DIR = osp.join(data_root, dataset)
         if dataset in ['refcoco', 'refcoco+', 'refcocog']:
-            self.IMAGE_DIR = osp.join(data_root, 'images/train2014')
+            self.IMAGE_DIR = osp.join(image_root, 'train2014')
         elif dataset == 'refclef':
-            self.IMAGE_DIR = osp.join(data_root, 'images/saiapr_tc-12')
+            self.IMAGE_DIR = osp.join(image_root, 'saiapr_tc-12')
         else:
             print('No refer dataset is called [%s]' % dataset)
             sys.exit()

@@ -17,12 +17,12 @@ parser.add_argument('--dataset',
                     default='refcoco')
 parser.add_argument('--split', type=str, default='umd')
 parser.add_argument('--generate_mask', action='store_true')
+parser.add_argument('--image_root', type=str)
 args = parser.parse_args()
-img_path = os.path.join(args.data_root, 'images', 'train2014')
 
 h, w = (416, 416)
 
-refer = REFER(args.data_root, args.dataset, args.split)
+refer = REFER(args.data_root, args.image_root, args.dataset, args.split)
 
 print('dataset [%s_%s] contains: ' % (args.dataset, args.split))
 ref_ids = refer.getRefIds()
