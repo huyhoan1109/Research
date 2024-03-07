@@ -90,7 +90,7 @@ def loads_pyarrow(buf):
     Args:
         buf: the output of `dumps`.
     """
-    return pickle5.load(buf)
+    return pickle5.loads(buf)
     
     # return pa.deserialize(buf)
 
