@@ -5,7 +5,7 @@ import torch.nn.functional as F
 # Have logits
 class CELoss(nn.Module):
     def __init__(self, cfg):
-        super(CELoss).__init__(cfg)
+        super(CELoss, self).__init__()
         self.cfg = cfg
     def forward(self, input, target):
         loss = F.binary_cross_entropy_with_logits(input, target)
@@ -13,7 +13,7 @@ class CELoss(nn.Module):
     
 class FocalLoss(nn.Module):
     def __init__(self, cfg):
-        super(FocalLoss).__init__(cfg)
+        super(FocalLoss, self).__init__()
         self.cfg = cfg
         self.alpha = cfg.alpha
         self.gamma = cfg.gamma
@@ -24,7 +24,7 @@ class FocalLoss(nn.Module):
 
 class DiceLoss(nn.Module):
     def __init__(self, cfg):
-        super(FocalLoss).__init__(cfg)
+        super(DiceLoss, self).__init__()
         self.smooth = cfg.smooth
     def forward(self, input, target):
         intersection = torch.sum(input * target, dim=2)  # (N, C)
