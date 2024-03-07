@@ -6,6 +6,7 @@ import lmdb
 import numpy as np
 import pyarrow as pa
 import torch
+import pickle5
 from torch.utils.data import Dataset
 
 from .simple_tokenizer import SimpleTokenizer as _Tokenizer
@@ -89,7 +90,9 @@ def loads_pyarrow(buf):
     Args:
         buf: the output of `dumps`.
     """
-    return pa.deserialize(buf)
+    return pickle5.load(buf)
+    
+    # return pa.deserialize(buf)
 
 
 class RefDataset(Dataset):
