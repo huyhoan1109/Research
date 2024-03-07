@@ -1,10 +1,10 @@
 DATA:
   dataset: refcoco+
-  train_lmdb: /kaggle/input/refcoco_plus/lmdb/refcoco+/train.lmdb
+  train_lmdb: /kaggle/input/refcoco-plus/lmdb/refcoco+/train.lmdb
   train_split: train
-  val_lmdb: /kaggle/input/refcoco_plus/lmdb/refcoco+/testB.lmdb
+  val_lmdb: /kaggle/input/refcoco-plus/lmdb/refcoco+/testB.lmdb
   val_split: testB
-  mask_root: /kaggle/input/refcoco_plus/masks/refcoco+
+  mask_root: /kaggle/input/refcoco-plus/masks/refcoco+
 TRAIN:
   # Base Arch
   clip_pretrain: pretrain/RN50.pt
@@ -51,5 +51,5 @@ Distributed:
   rank: 0
 TEST:
   test_split: val-test
-  test_lmdb: /kaggle/input/refcoco_plus/lmdb/refcoco+/val.lmdb
+  test_lmdb: /kaggle/input/refcoco-plus/lmdb/refcoco+/val.lmdb
   visualize: False
