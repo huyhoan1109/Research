@@ -51,6 +51,8 @@ def get_parser():
     cfg = config.load_cfg_from_cfg_file(args.config)
     if args.opts is not None:
         cfg = config.merge_cfg_from_list(cfg, args.opts)
+    if cfg.loss_type is None:
+        cfg = config.merge_cfg_from_list(cfg, args.loss_type)
     return cfg
 
 
