@@ -42,7 +42,10 @@ def get_parser():
                         default=None,
                         nargs=argparse.REMAINDER,
                         help='override some settings in the config.')
-
+    parser.add_argument('--loss_type', 
+                        type=str,
+                        default='ce',
+                        help='choose training loss. Default (CELoss)')
     args = parser.parse_args()
     assert args.config is not None
     cfg = config.load_cfg_from_cfg_file(args.config)
