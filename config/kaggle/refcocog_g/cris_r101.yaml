@@ -7,7 +7,7 @@ DATA:
   mask_root: /kaggle/input/refcocog-g/masks/refcocog_g
 TRAIN:
   # Base Arch
-  clip_pretrain: pretrain/RN101.pt
+  clip_pretrain: /kaggle/input/pretrain/RN101.pt
   input_size: 416
   word_len: 22
   word_dim: 512

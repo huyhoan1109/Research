@@ -182,8 +182,7 @@ def main_worker(gpu, args):
         train_sampler.set_epoch(epoch_log)
 
         # train
-        train(train_loader, model, optimizer, scheduler, scaler, epoch_log,
-              args)
+        train(train_loader, model, optimizer, scheduler, scaler, epoch_log, args)
 
         # evaluation
         iou, prec_dict = validate(val_loader, model, epoch_log, args)
