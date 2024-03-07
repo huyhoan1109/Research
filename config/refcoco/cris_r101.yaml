@@ -6,6 +6,11 @@ DATA:
   val_split: val
   mask_root: datasets/masks/refcoco
 TRAIN:
+  # Loss (ce, focal, dice)
+  loss_type: ce
+  alpha: 0.25
+  gamma: 2
+  smooth: 1e-7
   # Base Arch
   clip_pretrain: pretrain/RN101.pt
   input_size: 416
