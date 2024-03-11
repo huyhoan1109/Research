@@ -354,6 +354,7 @@ class Projector2(nn.Module):
         out1 = F.conv2d(x1,
                         weight1,
                         padding=self.kernel_size // 2,
+                        groups=weight1.size(0)
                         bias=bias1)
         print("out1", out1.size())
         x2 = self.upsample2(out1)
