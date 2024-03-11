@@ -341,10 +341,6 @@ class Projector2(nn.Module):
             x: b, 512, 26, 26
             word: b, 512
         '''
-                '''
-            x: b, 512, 26, 26
-            word: b, 512
-        '''
         x1 = self.upsample1(x)
         B1, C1, H1, W1 = x1.size()
         x1 = x1.reshape(1, B1 * C1, H1, W1)
