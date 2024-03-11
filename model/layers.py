@@ -343,23 +343,25 @@ class Projector2(nn.Module):
             x: b, 512, 26, 26
             word: b, 512
         '''
-        x1 = self.upsample1(x)
+        x1 = self.upsample1(x) # 1024, 13, 13
         B1, C1, H1, W1 = x1.size()
         x1 = x1.reshape(1, B1 * C1, H1, W1)
         word1 = self.txt1(word)
         weight1, bias1 = word1[:, :-1], word1[:, -1]
         weight1 = weight1.reshape(B1, C1, self.kernel_size, self.kernel_size)
-
+        print(x1.size())
         out1 = F.conv2d(x1,
                         weight1,
                         padding=self.kernel_size // 2,
                         groups=weight1.size(0),
                         bias=bias1)
-        
+        print("out1", out1.shape())
         x2 = self.upsample2(out1)
+        print("x2", x2.shape())
         B2, C2, H2, W2 = x2.size()
         x2 = x2.reshape(1, B2 * C2, H2, W2)
         word2 = self.txt2(word)
+        print("word2", word2.shape())
         weight2, bias2 = word2[:, :-1], word2[:, -1]
         weight2 = weight2.reshape(B2, C2, self.kernel_size, self.kernel_size)
 
