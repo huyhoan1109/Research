@@ -355,13 +355,13 @@ class Projector2(nn.Module):
                         padding=self.kernel_size // 2,
                         groups=weight1.size(0),
                         bias=bias1)
-        print("out1", out1.shape())
+        print("out1", out1.size())
         x2 = self.upsample2(out1)
-        print("x2", x2.shape())
+        print("x2", x2.size())
         B2, C2, H2, W2 = x2.size()
         x2 = x2.reshape(1, B2 * C2, H2, W2)
         word2 = self.txt2(word)
-        print("word2", word2.shape())
+        print("word2", word2.size())
         weight2, bias2 = word2[:, :-1], word2[:, -1]
         weight2 = weight2.reshape(B2, C2, self.kernel_size, self.kernel_size)
 
