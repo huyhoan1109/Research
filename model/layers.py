@@ -336,13 +336,15 @@ class Projector2(nn.Module):
             x: b, 512, 26, 26
             word: b, 512
         '''
-        x = self.vis(x)
+        x = self.visblock1(x)
         B, C, H, W = x.size()
         # 1, b*256, 104, 104
         x = x.reshape(1, B * C, H, W)
         # txt: b, (256*3*3 + 1) -> b, 256, 3, 3 / b
         word1 = self.txt1(word)
+        print(word1.shape)
         word2 = self.txt2(word)
+        print(word2.shape)
         weight1, bias1 = word1[:, :-1], word1[:, -1]
         weight1 = weight1.reshape(B, C, self.kernel_size, self.kernel_size)
         weight2, bias2 = word2[:, :-1], word2[:, -1]
@@ -353,6 +355,7 @@ class Projector2(nn.Module):
                        padding=self.kernel_size // 2,
                        groups=weight1.size(0),
                        bias=bias1)
+        out1 = self.visblock2(out1)
         # Conv2d - 1, b*256, 104, 104 -> 1, b, 104, 104
         out2 = F.conv2d(out1,
                        weight2,
