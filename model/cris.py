@@ -26,7 +26,10 @@ class CRIS(nn.Module):
                                           dropout=cfg.dropout,
                                           return_intermediate=cfg.intermediate)
         # Projector
-        self.proj = Projector(cfg.word_dim, cfg.vis_dim // 2, 3)
+        if cfg.projector == 2:
+            self.proj = Projector2(cfg.word_dim, cfg.vis_dim // 2, 3)
+        else:
+            self.proj = Projector(cfg.word_dim, cfg.vis_dim // 2, 3)
         loss_type = cfg.loss_type
         if loss_type == 'focal':
             self.loss_func = FocalLoss(cfg)
