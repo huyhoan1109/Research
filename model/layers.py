@@ -347,6 +347,7 @@ class Projector2(nn.Module):
         B1, C1, H1, W1 = x1.size()
         x1 = x1.reshape(1, B1 * C1, H1, W1)
         word1 = self.txt1(word)
+        print(word1.size())
         weight1, bias1 = word1[:, :-1], word1[:, -1]
         weight1 = weight1.reshape(B1, C1, self.kernel_size, self.kernel_size)
         print(x1.size())
