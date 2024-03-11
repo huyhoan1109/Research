@@ -43,47 +43,6 @@ class CoordConv(nn.Module):
         x = self.conv1(x)
         return x
 
-
-class Projector(nn.Module):
-    def __init__(self, word_dim=1024, in_dim=256, kernel_size=3):
-        super().__init__()
-        self.in_dim = in_dim
-        self.kernel_size = kernel_size
-        # visual projector
-        self.vis = nn.Sequential(  # os16 -> os4
-            nn.Upsample(scale_factor=2, mode='bilinear'),
-            conv_layer(in_dim * 2, in_dim * 2, 3, padding=1),
-            nn.Upsample(scale_factor=2, mode='bilinear'),
-            conv_layer(in_dim * 2, in_dim, 3, padding=1),
-            nn.Conv2d(in_dim, in_dim, 1))
-        # textual projector
-        out_dim = 1 * in_dim * kernel_size * kernel_size + 1
-        self.txt = nn.Linear(word_dim, out_dim)
-
-    def forward(self, x, word):
-        '''
-            x: b, 512, 26, 26
-            word: b, 512
-        '''
-        x = self.vis(x)
-        B, C, H, W = x.size()
-        # 1, b*256, 104, 104
-        x = x.reshape(1, B * C, H, W)
-        # txt: b, (256*3*3 + 1) -> b, 256, 3, 3 / b
-        word = self.txt(word)
-        weight, bias = word[:, :-1], word[:, -1]
-        weight = weight.reshape(B, C, self.kernel_size, self.kernel_size)
-        # Conv2d - 1, b*256, 104, 104 -> 1, b, 104, 104
-        out = F.conv2d(x,
-                       weight,
-                       padding=self.kernel_size // 2,
-                       groups=weight.size(0),
-                       bias=bias)
-        out = out.transpose(0, 1)
-        # b, 1, 104, 104
-        return out
-
-
 class TransformerDecoder(nn.Module):
     def __init__(self,
                  num_layers,
@@ -307,3 +266,99 @@ class FPN(nn.Module):
         fq = self.coordconv(fq)
         # b, 512, 26, 26
         return fq
+
+class Projector(nn.Module):
+    def __init__(self, word_dim=1024, in_dim=256, kernel_size=3):
+        super().__init__()
+        self.in_dim = in_dim
+        self.kernel_size = kernel_size
+        # visual projector
+        self.vis = nn.Sequential(  # os16 -> os4
+            nn.Upsample(scale_factor=2, mode='bilinear'),
+            conv_layer(in_dim * 2, in_dim * 2, 3, padding=1),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
+            conv_layer(in_dim * 2, in_dim, 3, padding=1),
+            nn.Conv2d(in_dim, in_dim, 1)
+        )
+        # textual projector
+        out_dim = 1 * in_dim * kernel_size * kernel_size + 1
+        self.txt = nn.Linear(word_dim, out_dim)
+
+    def forward(self, x, word):
+        '''
+            x: b, 512, 26, 26
+            word: b, 512
+        '''
+        x = self.vis(x)
+        B, C, H, W = x.size()
+        # 1, b*256, 104, 104
+        x = x.reshape(1, B * C, H, W)
+        # txt: b, (256*3*3 + 1) -> b, 256, 3, 3 / b
+        word = self.txt(word)
+        weight, bias = word[:, :-1], word[:, -1]
+        weight = weight.reshape(B, C, self.kernel_size, self.kernel_size)
+        # Conv2d - 1, b*256, 104, 104 -> 1, b, 104, 104
+        out = F.conv2d(x,
+                       weight,
+                       padding=self.kernel_size // 2,
+                       groups=weight.size(0),
+                       bias=bias)
+        out = out.transpose(0, 1)
+        # b, 1, 104, 104
+        return out
+
+def UpsampleBlock(nn.Module):
+    def __init__(self, in_dim=256, out_dim=256, scale_factor=2, kernel_size=3):
+        self.block = nn.Sequential(
+            nn.Upsample(scale_factor=scale_factor, mode='bilinear'),
+            conv_layer(in_dim, out_dim, kernel_size, padding=1),
+        )
+    def forward(self, x):
+        return self.block(x)
+
+class Projector2(nn.Module):
+    def __init__(self, word_dim=1024, in_dim=256, kernel_size=3):
+        super().__init__()
+        self.in_dim = in_dim
+        self.kernel_size = kernel_size
+        self.visblock1 = UpsampleBlock(in_dim * 2, in_dim * 2, 2, 3)
+        self.visblock2 = UpsampleBlock(in_dim * 2, in_dim, 2, 3)
+        self.final_block = nn.Conv2d(in_dim, in_dim, 1)
+        # textual projector
+        out_dim1 = 2 * in_dim * kernel_size * kernel_size + 1
+        out_dim2 = in_dim * kernel_size * kernel_size
+        self.txt1 = nn.Linear(word_dim, out_dim1)
+        self.txt2 = nn.Linear(word_dim, out_dim2)
+
+    def forward(self, x, word):
+        '''
+            x: b, 512, 26, 26
+            word: b, 512
+        '''
+        x = self.vis(x)
+        B, C, H, W = x.size()
+        # 1, b*256, 104, 104
+        x = x.reshape(1, B * C, H, W)
+        # txt: b, (256*3*3 + 1) -> b, 256, 3, 3 / b
+        word1 = self.txt1(word)
+        word2 = self.txt2(word)
+        weight1, bias1 = word1[:, :-1], word1[:, -1]
+        weight1 = weight1.reshape(B, C, self.kernel_size, self.kernel_size)
+        weight2, bias2 = word2[:, :-1], word2[:, -1]
+        weight2 = weight2.reshape(B, C, self.kernel_size, self.kernel_size)
+        # Conv2d - 1, b*256, 104, 104 -> 1, b, 104, 104
+        out1 = F.conv2d(x,
+                       weight1,
+                       padding=self.kernel_size // 2,
+                       groups=weight1.size(0),
+                       bias=bias1)
+        # Conv2d - 1, b*256, 104, 104 -> 1, b, 104, 104
+        out2 = F.conv2d(out1,
+                       weight2,
+                       padding=self.kernel_size // 2,
+                       groups=weight2.size(0),
+                       bias=bias2)
+        out2 = out2.transpose(0, 1)
+        # b, 1, 104, 104
+        return out2
+
