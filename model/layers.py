@@ -333,7 +333,7 @@ class Projector2(nn.Module):
         self.upsample1 = UpsampleBlock(in_dim * 2, in_dim * 2, 2, 3)
         self.upsample2 = UpsampleBlock(in_dim * 2, in_dim, 2, 3)
         # textual projector
-        out_dim1 = 2 * in_dim * kernel_size * kernel_size + 1
+        out_dim1 = 2 * in_dim * kernel_size * kernel_size
         out_dim2 = 1 * in_dim * kernel_size * kernel_size + 1
         self.txt1 = nn.Linear(word_dim, out_dim1)
         self.txt2 = nn.Linear(word_dim, out_dim2)
@@ -343,11 +343,14 @@ class Projector2(nn.Module):
             x: b, 512, 26, 26
             word: b, 512
         '''
-        x1 = self.upsample1(x) # 1024, 13, 13
+        x1 = self.upsample1(x) 
+        printf(x1.size())
         B1, C1, H1, W1 = x1.size()
         x1 = x1.reshape(1, B1 * C1, H1, W1)
         word1 = self.txt1(word)
-        x2 = self.upsample2(x1 * word1)
+
+        x2 = self.upsample2(x1)
+        print(x2.size())
         B2, C2, H2, W2 = x2.size()
         x2 = x2.reshape(1, B2 * C2, H2, W2)
         word2 = self.txt2(word)
