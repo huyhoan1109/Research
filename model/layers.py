@@ -350,6 +350,7 @@ class Projector2(nn.Module):
         weight1, bias1 = word1[:, :-1], word1[:, -1]
         weight1 = weight1.reshape(B1, C1, self.kernel_size, self.kernel_size)
         print(x1.size())
+        print(weight1.size())
         out1 = F.conv2d(x1,
                         weight1,
                         padding=self.kernel_size // 2,
