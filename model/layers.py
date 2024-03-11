@@ -356,7 +356,7 @@ class Projector2(nn.Module):
                         groups=weight1.size(0),
                         bias=bias1)
         
-        x2 = self.upsample(out1)
+        x2 = self.upsample2(out1)
         B2, C2, H2, W2 = x2.size()
         x2 = x2.reshape(1, B2 * C2, H2, W2)
         weight2, bias2 = word2[:, :-1], word2[:, -1]
