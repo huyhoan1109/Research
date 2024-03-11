@@ -355,9 +355,10 @@ class Projector2(nn.Module):
                         bias=bias1)
         
         x2 = self.upsample(out1)
-        B2, C2, H2, W2 = x1.size()
-        x2 = x2.reshape(1, B1 * C1, H1, W1)
+        B2, C2, H2, W2 = x2.size()
+        x2 = x2.reshape(1, B2 * C2, H2, W2)
         weight2, bias2 = word2[:, :-1], word2[:, -1]
+        weight2 = weight2.reshape(B2, C2, self.kernel_size, self.kernel_size)
 
         out2 = F.conv2d(x2, 
                         weight2,
