@@ -8,7 +8,9 @@ import torch.nn.functional as F
 def conv_layer(in_dim, out_dim, kernel_size=1, padding=0, stride=1):
     return nn.Sequential(
         nn.Conv2d(in_dim, out_dim, kernel_size, stride, padding, bias=False),
-        nn.BatchNorm2d(out_dim), nn.ReLU(True))
+        nn.BatchNorm2d(out_dim), 
+        nn.ReLU(True)
+    )
 
 
 def linear_layer(in_dim, out_dim, bias=False):
@@ -308,26 +310,29 @@ class Projector(nn.Module):
         return out
 
 class UpsampleBlock(nn.Module):
-    def __init__(self, in_dim=256, out_dim=256, scale_factor=2, kernel_size=3):
+    def __init__(self, dim, scale_factor=2, kernel_size=3):
         super().__init__()
-        self.block = nn.Sequential(
+        self.scale_factor = scale_factor
+        self.kernel_size = kernel_size
+        # visual projector
+        self.upsample = nn.Sequential(  # os16 -> os4
             nn.Upsample(scale_factor=scale_factor, mode='bilinear'),
-            conv_layer(in_dim, out_dim, kernel_size, padding=1),
+            conv_layer(dim, dim, kernel_size, padding=1),
         )
     def forward(self, x):
-        return self.block(x)
+        return self.upsample(x)
 
 class Projector2(nn.Module):
     def __init__(self, word_dim=1024, in_dim=256, kernel_size=3):
         super().__init__()
         self.in_dim = in_dim
         self.kernel_size = kernel_size
-        self.visblock1 = UpsampleBlock(in_dim * 2, in_dim * 2, 2, 3)
-        self.visblock2 = UpsampleBlock(in_dim * 2, in_dim, 2, 3)
-        self.final_block = nn.Conv2d(in_dim, in_dim, 1)
+        # visual projector
+        self.upsample1 = UpsampleBlock(in_dim * 2, in_dim * 2, 2, 3)
+        self.upsample2 = UpsampleBlock(in_dim * 2, in_dim, 2, 3)
         # textual projector
-        out_dim1 = 2 * in_dim * kernel_size * kernel_size + 1
-        out_dim2 = in_dim * kernel_size * kernel_size
+        out_dim2 = 2 * in_dim * kernel_size * kernel_size + 1
+        out_dim1 = 1 * in_dim * kernel_size * kernel_size + 1
         self.txt1 = nn.Linear(word_dim, out_dim1)
         self.txt2 = nn.Linear(word_dim, out_dim2)
 
@@ -336,33 +341,33 @@ class Projector2(nn.Module):
             x: b, 512, 26, 26
             word: b, 512
         '''
-        x = self.visblock1(x)
-        B, C, H, W = x.size()
-        # 1, b*256, 104, 104
-        x = x.reshape(1, B * C, H, W)
-        # txt: b, (256*3*3 + 1) -> b, 256, 3, 3 / b
+                '''
+            x: b, 512, 26, 26
+            word: b, 512
+        '''
+        x1 = self.upsample1(x)
+        B1, C1, H1, W1 = x1.size()
+        x1 = x1.reshape(1, B1 * C1, H1, W1)
         word1 = self.txt1(word)
-        print(word1.shape)
-        word2 = self.txt2(word)
-        print(word2.shape)
         weight1, bias1 = word1[:, :-1], word1[:, -1]
-        weight1 = weight1.reshape(B, C, self.kernel_size, self.kernel_size)
-        weight2, bias2 = word2[:, :-1], word2[:, -1]
-        weight2 = weight2.reshape(B, C, self.kernel_size, self.kernel_size)
-        # Conv2d - 1, b*256, 104, 104 -> 1, b, 104, 104
-        out1 = F.conv2d(x,
-                       weight1,
-                       padding=self.kernel_size // 2,
-                       groups=weight1.size(0),
-                       bias=bias1)
-        out1 = self.visblock2(out1)
-        # Conv2d - 1, b*256, 104, 104 -> 1, b, 104, 104
-        out2 = F.conv2d(out1,
-                       weight2,
-                       padding=self.kernel_size // 2,
-                       groups=weight2.size(0),
-                       bias=bias2)
-        out2 = out2.transpose(0, 1)
-        # b, 1, 104, 104
-        return out2
+        weight1 = weight1.reshape(B1, C1, self.kernel_size, self.kernel_size)
 
+        out1 = F.conv2d(x1,
+                        weight1,
+                        padding=self.kernel_size // 2,
+                        groups=weight1.size(0),
+                        bias=bias1)
+        
+        x2 = self.upsample(out1)
+        B2, C2, H2, W2 = x1.size()
+        x2 = x2.reshape(1, B1 * C1, H1, W1)
+        weight2, bias2 = word2[:, :-1], word2[:, -1]
+
+        out2 = F.conv2d(x2, 
+                        weight2,
+                        padding=self.kernel_size // 2,
+                        groups=weight2.size(0),
+                        bias=bias2)
+        
+        out2 = out2.transpose(0, 1)
+        return out
