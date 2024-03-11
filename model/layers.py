@@ -310,14 +310,16 @@ class Projector(nn.Module):
         return out
 
 class UpsampleBlock(nn.Module):
-    def __init__(self, dim, scale_factor=2, kernel_size=3):
+    def __init__(self, in_dim, out_dim, scale_factor=2, kernel_size=3):
         super().__init__()
+        self.in_dim = in_dim
+        self.out_dim = out_dim
         self.scale_factor = scale_factor
         self.kernel_size = kernel_size
         # visual projector
         self.upsample = nn.Sequential(  # os16 -> os4
             nn.Upsample(scale_factor=scale_factor, mode='bilinear'),
-            conv_layer(dim, dim, kernel_size, padding=1),
+            conv_layer(in_dim, out_dim, kernel_size, padding=1),
         )
     def forward(self, x):
         return self.upsample(x)
