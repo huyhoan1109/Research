@@ -6,7 +6,7 @@ from model.clip import build_model
 from loss import CELoss, FocalLoss, DiceLoss
 
 
-from .layers import FPN, Projector, Projector2, TransformerDecoder
+from .layers import FPN, Projector, TransformerDecoder
 
 
 class CRIS(nn.Module):

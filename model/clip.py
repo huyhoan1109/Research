@@ -218,7 +218,7 @@ class ModifiedResNet(nn.Module):
         x2 = self.layer2(x)
         x3 = self.layer3(x2)
         x4 = self.layer4(x3)
-        x4 = self.attnpool(x4)
+        x4 = self.attnpool(x4)  # fattn
 
         return (x2, x3, x4)
 

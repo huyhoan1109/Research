@@ -27,7 +27,7 @@ class DiceLoss(nn.Module):
         super(DiceLoss, self).__init__()
         self.smooth = cfg.smooth
     def forward(self, input, target):
-        intersection = torch.sum(input * target, dim=2)  # (N, C)
-        union = torch.sum(input, dim=2) + torch.sum(target, dim=2)  # (N, C)
-        loss = (2 * intersection + self.smooth) / (union + self.smooth)  # (N, C)
+        num = torch.sum(torch.mul(input, target), dim=1) + self.smooth
+        den = torch.sum(input.pow(2) + target.pow(2), dim=1) + self.smooth
+        loss = 1 - num / den
         return loss
