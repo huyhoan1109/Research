@@ -3,6 +3,38 @@ import math
 import torch
 import torch.nn as nn
 
+def conv_layer(in_dim, out_dim, kernel_size=1, padding=0, stride=1):
+    return nn.Sequential(
+        nn.Conv2d(in_dim, out_dim, kernel_size, stride, padding, bias=False),
+        nn.BatchNorm2d(out_dim), 
+        nn.ReLU(True)
+    )
+
+class UpsampleBlock(nn.Module):
+    def __init__(self, in_dim, out_dim, scale_factor=2, kernel_size=3):
+        self.upsample = nn.Sequential(
+            nn.Upsample(scale_factor=scale_factor, mode='bilinear'),
+            conv_layer(in_dim, out_dim, kernel_size, padding=1)
+        )
+    def forward(self, x):
+        return self.upsample(x)
+
+class ScaleGate(nn.Module):
+    def __init__(self, fpn_dim):
+        super().__init__()
+        # fpn_in = [512, 1024, 1024]
+        # 3 feature vectors => 2 Upsample blocks
+        self.upsample_layers = [
+            UpsampleBlock(fpn_dim[i], fpn_dim[i+1], (i+1)*2) for i in range(len(fpn_in) - 1)
+        ]
+    def forward(self, vis_features):
+        # output (B, C, H, W)
+        output = vis_features[0].detach()
+        for n in range(1, len(vis_features)):
+            ups_n = self.upsample_layers[n-1](vis_features[n])
+            output = torch.cat([output, ups_n], dim=1)
+        return output        
+
 class TransformerDecoder(nn.Module):
     def __init__(self,
                  num_layers,
@@ -10,17 +42,20 @@ class TransformerDecoder(nn.Module):
                  nhead,
                  dim_ffn,
                  dropout,
+                 fpn_dim,
                  return_intermediate=False):
         super().__init__()
+        self.num_layers = num_layers
+        self.fpn_dim = fpn_dim
+        self.return_intermediate = return_intermediate
         self.layers = nn.ModuleList([
             TransformerDecoderLayer(d_model=d_model,
                                     nhead=nhead,
                                     dim_feedforward=dim_ffn,
                                     dropout=dropout) for _ in range(num_layers)
         ])
-        self.num_layers = num_layers
+        self.scale_gate = ScaleGate(fpn_dim)
         self.norm = nn.LayerNorm(d_model)
-        self.return_intermediate = return_intermediate
 
     @staticmethod
     def pos1d(d_model, length):
@@ -71,40 +106,20 @@ class TransformerDecoder(nn.Module):
         return pe.reshape(-1, 1, height * width).permute(2, 1, 0)  # hw, 1, 512
 
     def forward(self, vis, txt, pad_mask):
-        '''
-            vis: b, 512, h, w
+        '''     
+            vis1, vis2, vis3 = vis       
+            vis1: b, 512, h1, w1
+            vis2: b, 1024, h2, w2
+            vis3: b, 1024, h3, w3
             txt: b, L, 512
             pad_mask: b, L
         '''
-        B, C, H, W = vis.size()
+        scale_vis = self.scale_gate(vis)
+        # Default vis1, vis2, vis3
+        vis1, vis2, vis3 = scale_vis.chunk(self.fpn_dim, dim=1)
+        B1, C1, H1, W1 = vis.size()
         _, L, D = txt.size()
-        # position encoding
-        vis_pos = self.pos2d(C, H, W)
-        txt_pos = self.pos1d(D, L)
-        # reshape & permute
-        vis = vis.reshape(B, C, -1).permute(2, 0, 1)
-        txt = txt.permute(1, 0, 2)
-        # forward
-        output = vis
-        intermediate = []
-        for layer in self.layers:
-            output = layer(output, txt, vis_pos, txt_pos, pad_mask)
-            if self.return_intermediate:
-                # HW, b, 512 -> b, 512, HW
-                intermediate.append(self.norm(output).permute(1, 2, 0))
-
-        if self.norm is not None:
-            # HW, b, 512 -> b, 512, HW
-            output = self.norm(output).permute(1, 2, 0)
-            if self.return_intermediate:
-                intermediate.pop()
-                intermediate.append(output)
-                # [output1, output2, ..., output_n]
-                return intermediate
-            else:
-                # b, 512, HW
-                return output
-        return output
+        pass
 
 
 class TransformerDecoderLayer(nn.Module):
