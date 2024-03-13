@@ -329,15 +329,18 @@ class newFPN(nn.Module):
         f3 = self.norm_layer3(f3 * state3)
         f3 = F.avg_pool2d(f3, 2, 2)
         f3 = self.f3_cat(torch.cat([f3, f4], dim=1))
+        
         # fusion 4: b, 512, 13, 13 / b, 512, 26, 26 / b, 512, 26, 26
         fq5 = self.f4_proj5(f5)
         fq4 = self.f4_proj4(f4)
         fq3 = self.f4_proj3(f3)
+        
         # query
         fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
         fq = torch.cat([fq3, fq4, fq5], dim=1)
         fq = self.aggr(fq)
         fq = self.coordconv(fq)
+        
         # b, 512, 26, 26
         return fq
 

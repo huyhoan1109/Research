@@ -8,7 +8,7 @@ from loss import CELoss, FocalLoss, DiceLoss
 
 from .layers import FPN, Projector, TransformerDecoder, newFPN
 
-class CRIS(nn.Module):
+class GLCRIS(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         # Vision & Text Encoder
@@ -48,6 +48,16 @@ class CRIS(nn.Module):
         '''
         # padding mask used in decoder
         pad_mask = torch.zeros_like(word).masked_fill_(word == 0, 1).bool()
+        
+        # global visual feature
+        # TODO
+        # local visual feature
+        # TODO
+
+        # global text feature
+        # TODO
+        # local text feature
+        # TODO
 
         # vis: C3 / C4 / C5
         # word: b, length, 1024
