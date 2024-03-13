@@ -268,12 +268,12 @@ class FPN(nn.Module):
         # b, 512, 26, 26
         return fq
 
-class FPN1(nn.Module):
+class newFPN(nn.Module):
     def __init__(self,
                  in_channels=[512, 1024, 1024],
                  out_channels=[256, 512, 1024],
                  word_dim=1024):
-        super(FPN1, self).__init__()
+        super(newFPN, self).__init__()
         # text projection
         self.txt_proj1 = linear_layer(word_dim, out_channels[2])
         self.txt_proj2 = linear_layer(word_dim, out_channels[1])

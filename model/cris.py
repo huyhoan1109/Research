@@ -6,7 +6,7 @@ from model.clip import build_model
 from loss import CELoss, FocalLoss, DiceLoss
 
 
-from .layers import FPN, Projector, TransformerDecoder, FPN1
+from .layers import FPN, Projector, TransformerDecoder, newFPN
 
 
 class CRIS(nn.Module):
@@ -16,9 +16,13 @@ class CRIS(nn.Module):
         clip_model = torch.jit.load(cfg.clip_pretrain,
                                     map_location="cpu").eval()
         self.backbone = build_model(clip_model.state_dict(), cfg.word_len).float()
+        
         # Multi-Modal FPN
-        # self.neck = FPN(in_channels=cfg.fpn_in, out_channels=cfg.fpn_out)
-        self.neck = FPN1(in_channels=cfg.fpn_in, out_channels=cfg.fpn_out)
+        if cfg.neck == 'base':
+            self.neck = FPN(in_channels=cfg.fpn_in, out_channels=cfg.fpn_out)
+        else:
+            self.neck = newFPN(in_channels=cfg.fpn_in, out_channels=cfg.fpn_out, word_dim=cfg.word_dim)
+        
         # Decoder
         self.decoder = TransformerDecoder(num_layers=cfg.num_layers,
                                           d_model=cfg.vis_dim,

@@ -6,7 +6,9 @@ DATA:
   val_split: val
   mask_root: /kaggle/input/refcoco/masks/refcoco
 TRAIN:
-  # Add id to continue training (to continue training => continue_training = 'must') (to continue training => continue_training = 'must')
+  neck: base
+    neck: base
+  # Add id to continue training (to continue training => continue_training = 'must')
   run_id: 
   continue_training: 
   # Loss (ce, focal, dice)
