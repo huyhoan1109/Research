@@ -21,8 +21,8 @@ from torch.optim.lr_scheduler import MultiStepLR
 
 import utils.config as config
 import wandb
-from utils.dataset import RefDataset
-from engine.engine import train, validate
+# from utils.dataset import RefDataset
+# from .engine.engine import train, validate
 from model import build_segmenter
 from utils.misc import (init_random_seed, set_random_seed, setup_logger,
                         worker_init_fn)
@@ -53,6 +53,7 @@ def get_parser():
 @logger.catch
 def main():
     args = get_parser()
+    
     args.manual_seed = init_random_seed(args.manual_seed)
     set_random_seed(args.manual_seed, deterministic=False)
 
@@ -83,12 +84,16 @@ def main_worker(gpu, args):
 
     # wandb
     if args.rank == 0:
-        wandb.init(job_type="training",
-                   mode="online",
-                   config=args,
-                   project="CRIS",
-                   name=args.exp_name,
-                   tags=[args.dataset, args.clip_pretrain])
+        wandb.init(
+            job_type="training",
+            mode="online",
+            config=args,
+            project="CRIS",
+            name=args.exp_name,
+            tags=[args.dataset, args.clip_pretrain],
+            id=args.run_id,
+            resume=args.continue_training 
+        )
     dist.barrier()
 
     # build model

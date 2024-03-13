@@ -25,7 +25,7 @@ class ScaleGate(nn.Module):
         # fpn_in = [512, 1024, 1024]
         # 3 feature vectors => 2 Upsample blocks
         self.upsample_layers = [
-            UpsampleBlock(fpn_dim[i], fpn_dim[i+1], (i+1)*2) for i in range(len(fpn_in) - 1)
+            UpsampleBlock(fpn_dim[i], fpn_dim[i+1], (i+1)*2) for i in range(len(fpn_dim) - 1)
         ]
     def forward(self, vis_features):
         # output (B, C, H, W)
