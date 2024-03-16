@@ -53,7 +53,7 @@ def get_parser():
 @logger.catch
 def main():
     args = get_parser()
-    
+
     args.manual_seed = init_random_seed(args.manual_seed)
     set_random_seed(args.manual_seed, deterministic=False)
 

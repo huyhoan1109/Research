@@ -81,8 +81,9 @@ def merge_cfg_from_list(cfg, cfg_list):
         subkey = full_key.split('.')[-1]
         assert subkey in cfg, 'Non-existent key: {}'.format(full_key)
         value = _decode_cfg_value(v)
-        value = _check_and_coerce_cfg_value_type(value, cfg[subkey], subkey,
-                                                 full_key)
+        print(value, type(value))
+        # value = _check_and_coerce_cfg_value_type(value, cfg[subkey], subkey,
+        #                                          full_key)
         setattr(new_cfg, subkey, value)
 
     return new_cfg
@@ -124,7 +125,6 @@ def _check_and_coerce_cfg_value_type(replacement, original, key, full_key):
     """
     original_type = type(original)
     replacement_type = type(replacement)
-
     # The types must match (with some exceptions)
     if replacement_type == original_type:
         return replacement
