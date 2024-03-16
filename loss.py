@@ -31,3 +31,5 @@ class DiceLoss(nn.Module):
         den = torch.sum(input.pow(2) + target.pow(2), dim=1) + self.smooth
         loss = 1 - num / den
         return loss
+    
+    
