@@ -22,7 +22,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 import utils.config as config
 import wandb
 from utils.dataset import RefDataset
-from .engine.engine import train, validate
+from engine.engine import train, validate
 from model import build_segmenter
 from utils.misc import (init_random_seed, set_random_seed, setup_logger,
                         worker_init_fn)
