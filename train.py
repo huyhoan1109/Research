@@ -163,8 +163,8 @@ def main_worker(gpu, args):
     if args.resume:
         if os.path.isfile(args.resume):
             logger.info("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(
-                args.resume, map_location=lambda storage: storage.cuda())
+            map_location = {'cuda:%d' % 0: 'cuda:%d' % args.rank}
+            checkpoint = torch.load(args.resume, map_location=map_location)
             args.start_epoch = checkpoint['epoch']
             best_IoU = checkpoint["best_iou"]
             model.load_state_dict(checkpoint['state_dict'])
