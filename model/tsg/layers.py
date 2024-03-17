@@ -58,10 +58,12 @@ class TransformerDecoder(nn.Module):
                  return_intermediate=False):
         super().__init__()
         self.decoder_layers = nn.ModuleList([
-            TransformerDecoderLayer(d_model=d_model,
-                                    nhead=nhead,
-                                    dim_feedforward=dim_ffn,
-                                    dropout=dropout) for _ in range(num_layers)
+            TransformerDecoderLayer(
+                d_model=d_model,
+                nhead=nhead,
+                dim_feedforward=dim_ffn,
+                dropout=dropout
+            ) for _ in range(num_layers)
         ])
         self.num_layers = num_layers
         self.norm = nn.LayerNorm(d_model)
@@ -123,7 +125,7 @@ class TransformerDecoder(nn.Module):
             pad_mask: b, L
         '''
         if type(vis_feats) != torch.TensorType:
-            vis_feats = torch.concat(*vis_feats, dim=1)
+            vis_feats = torch.concat(vis_feats, dim=1)
         vis = vis_feats.chunk(3, dim=1)[0]  # first fusion
         B, C, H, W = vis.size()
         _, L, D = txt.size()
