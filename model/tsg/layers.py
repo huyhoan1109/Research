@@ -50,6 +50,7 @@ class CoordConv(nn.Module):
 
 class TransformerDecoder(nn.Module):
     def __init__(self,
+                 num_stages,
                  num_layers,
                  d_model,
                  nhead,
@@ -59,16 +60,17 @@ class TransformerDecoder(nn.Module):
         super().__init__()
         self.decoder_layers = nn.ModuleList([
             TransformerDecoderLayer(
+                num_stages=num_stages,
                 d_model=d_model,
                 nhead=nhead,
                 dim_feedforward=dim_ffn,
                 dropout=dropout
             ) for _ in range(num_layers)
         ])
+        self.num_stages = num_stages
         self.num_layers = num_layers
         self.norm = nn.LayerNorm(d_model)
         self.return_intermediate = return_intermediate
-
     @staticmethod
     def pos1d(d_model, length):
         """
@@ -124,7 +126,10 @@ class TransformerDecoder(nn.Module):
             txt: b, L, 512
             pad_mask: b, L
         '''
-        vis = vis_feats.chunk(3, dim=1)[0]  # first fusion
+        all_vis = torch.chunk(vis_feats, self.num_stages, dim=1)
+        vis = torch.zeros_like(all_vis[0])
+        for tens in all_vis:
+            vis += tens
         B, C, H, W = vis.size()
         _, L, D = txt.size()
         # position encoding
@@ -132,7 +137,7 @@ class TransformerDecoder(nn.Module):
         txt_pos = self.pos1d(D, L)
         # reshape & permute
         vis = vis.reshape(B, C, -1).permute(2, 0, 1) # B, 512, HxW => HxW, B, 512
-        vis_feats.permute(B, 3 * C, -1).permute(2, 0, 1) # B, 512 * 3, H, W => HxW, B, 512 * 3
+        vis_feats.reshape(B, 3 * C, -1).permute(2, 0, 1) # B, 512 * 3, H, W => HxW, B, 512 * 3
         txt = txt.permute(1, 0, 2)  # B, L, C => L, B, C  
         # forward
         output = vis
@@ -159,6 +164,7 @@ class TransformerDecoder(nn.Module):
 
 class TransformerDecoderLayer(nn.Module):
     def __init__(self,
+                 num_stages,
                  d_model=512,
                  nhead=9,
                  dim_feedforward=2048,
@@ -168,17 +174,20 @@ class TransformerDecoderLayer(nn.Module):
         self.self_attn_norm = nn.LayerNorm(d_model)
         self.cross_attn_norm = nn.LayerNorm(d_model)
         # Attention Layer
-        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
-        self.multihead_attn = nn.MultiheadAttention(d_model,
-                                                    nhead,
-                                                    dropout=dropout,
-                                                    kdim=d_model,
-                                                    vdim=d_model)
+        self.vis_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.vis_txt_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, kdim=d_model, vdim=d_model)
+        
+        # Scale gate
+        self.scale_gate = ScaleGate(d_model, num_stages)
+        
         # FFN
-        self.ffn = nn.Sequential(nn.Linear(d_model, dim_feedforward),
-                                 nn.ReLU(True), nn.Dropout(dropout),
-                                 nn.LayerNorm(dim_feedforward),
-                                 nn.Linear(dim_feedforward, d_model))
+        self.ffn = nn.Sequential(
+            nn.Linear(d_model, dim_feedforward),
+            nn.ReLU(True), 
+            nn.Dropout(dropout),
+            nn.LayerNorm(dim_feedforward),
+            nn.Linear(dim_feedforward, d_model)
+        )
         # LayerNorm & Dropout
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
@@ -202,23 +211,29 @@ class TransformerDecoderLayer(nn.Module):
         # Self-Attention
         vis2 = self.norm1(vis)
         q = k = self.with_pos_embed(vis2, vis_pos)
-        # vis2 = self.self_attn(q, k, value=vis2)[0]
-        vis2 = self.self_attn(q, k, value=vis2)
-        print(vis2.size())    
-        pass
+        vis2, _ = self.vis_attn(
+            query=q, 
+            key=k, 
+            value=vis2,
+        ) 
+        # (26x26, B, 512)
+        vis2 = self.scale_gate(vis2, vis_feats)
         vis2 = self.self_attn_norm(vis2)
         vis = vis + self.dropout1(vis2)
         
         # Cross-Attention
         vis2 = self.norm2(vis)
-        vis2 = self.multihead_attn(query=self.with_pos_embed(vis2, vis_pos),
-                                   key=self.with_pos_embed(txt, txt_pos),
-                                   value=txt,
-                                   key_padding_mask=pad_mask)[0]
+        # (26x26, B, 512), (B, nhead, 26x26, 17)
+        vis2, _ = self.vis_txt_attn(
+            query=self.with_pos_embed(vis2, vis_pos),
+            key=self.with_pos_embed(txt, txt_pos),
+            value=txt,
+            key_padding_mask=pad_mask,
+            average_attn_weights=False
+        )
         vis2 = self.cross_attn_norm(vis2)
-        
+        # [676, B, 512]
         vis = vis + self.dropout2(vis2)
-        
         # FFN
         vis2 = self.norm3(vis)
         vis2 = self.ffn(vis2)
@@ -250,10 +265,10 @@ class FPN(nn.Module):
         self.f4_proj3 = conv_layer(out_channels[1], out_channels[1], 3, 1)
         # aggregation
         # self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
-        # self.coordconv = nn.Sequential(
-        #     CoordConv(out_channels[1], out_channels[1], 3, 1),
-        #     conv_layer(out_channels[1], out_channels[1], 3, 1)
-        # )
+        self.coordconv = nn.Sequential(
+            CoordConv(out_channels[1] * 3, out_channels[1] * 3, 3, 1),
+            conv_layer(out_channels[1] * 3, out_channels[1] * 3, 3, 1)
+        )
 
     def forward(self, imgs, state):
         # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
@@ -280,7 +295,7 @@ class FPN(nn.Module):
         fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
         fq = torch.cat([fq3, fq4, fq5], dim=1)
         # fq = self.aggr(fq)
-        # fq = self.coordconv(fq)
+        fq = self.coordconv(fq)
         # b, 512, 26, 26
         # return fq3, fq4, fq5
         return fq
@@ -317,9 +332,10 @@ class newFPN(nn.Module):
         self.f4_proj3 = conv_layer(out_channels[1], out_channels[1], 3, 1)
         # aggregation
         # self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
-        # self.coordconv = nn.Sequential(
-        #     CoordConv(out_channels[1], out_channels[1], 3, 1),
-        #     conv_layer(out_channels[1], out_channels[1], 3, 1))
+        self.coordconv = nn.Sequential(
+            CoordConv(out_channels[1] * 3, out_channels[1], 3, 1),
+            conv_layer(out_channels[1] * 3, out_channels[1], 3, 1)
+        )
 
     def forward(self, imgs, state):
         # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
@@ -360,7 +376,7 @@ class newFPN(nn.Module):
         
         fq = torch.cat([fq3, fq4, fq5], dim=1)
         # fq = self.aggr(fq)
-        # fq = self.coordconv(fq)
+        fq = self.coordconv(fq)
         
         # # b, 512, 26, 26
         return fq
@@ -406,18 +422,34 @@ class Projector(nn.Module):
         return out
 
 class ScaleGate(nn.Module):
-    def __init__(self, in_dim, out_dim):
+    def __init__(self, d_model, num_stages):
         super().__init__()
+        self.d_model = d_model
+        self.num_stages = num_stages
         self.layers = nn.Sequential(
-            nn.Linear(in_dim, out_dim),
-            nn.LayerNorm(out_dim),
-            nn.Linear(out_dim, out_dim),
+            nn.LayerNorm(d_model),
+            nn.Linear(d_model, d_model),
             nn.GELU(),
-            nn.Linear(out_dim, out_dim),
+            nn.Linear(d_model, num_stages)
         )
     def forward(self, x, vis_feats):
-        result = self.layers(x)
-        result = result @ vis_feats
-        return x
+        x = self.layers(x)
+        shape = x.size()
+        x.permute(2, 0, 1).reshape(shape[2], -1)
+        x = F.softmax(x, dim=1)
+        x.reshape(shape[0], shape[1], -1)
+        # [676, 2, 3], [2, 1536, 26, 26]
+        vis_chunk = torch.chunk(vis_feats, self.num_stages, 1)
+        B, C, H, W = vis_chunk[0].size()
+        # x: C, HxW, B, num_stages
+        x = x.repeat(C, 1, 1, 1)
+        # x: B, num_stages, C, HxW
+        x = x.permute(2, 3, 0, 1)
+        # vis: B, num_stages, C, HxW
+        vis = torch.reshape(vis_feats, (B, self.num_stages, C, -1))
+        output = x * vis
+        output = torch.sum(output, keepdim=False, dim=1).permute(2, 0, 1)
+        return output
+
 
 
