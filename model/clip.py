@@ -264,7 +264,6 @@ class ResidualAttentionBlock(nn.Module):
         x = x + self.mlp(self.ln_2(x))
         return x
 
-
 class Transformer(nn.Module):
     def __init__(self,
                  width: int,
@@ -372,7 +371,8 @@ class CLIP(nn.Module):
             width=transformer_width,
             layers=transformer_layers,
             heads=transformer_heads,
-            attn_mask=self.build_attention_mask(txt_length))
+            attn_mask=self.build_attention_mask(txt_length)
+        )
 
         self.vocab_size = vocab_size
         self.token_embedding = nn.Embedding(vocab_size, transformer_width)

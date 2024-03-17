@@ -14,8 +14,11 @@ def conv_layer(in_dim, out_dim, kernel_size=1, padding=0, stride=1):
 
 
 def linear_layer(in_dim, out_dim, bias=False):
-    return nn.Sequential(nn.Linear(in_dim, out_dim, bias),
-                         nn.BatchNorm1d(out_dim), nn.ReLU(True))
+    return nn.Sequential(
+        nn.Linear(in_dim, out_dim, bias),
+        nn.BatchNorm1d(out_dim), 
+        nn.ReLU(True)
+    )
 
 
 class CoordConv(nn.Module):
@@ -54,7 +57,7 @@ class TransformerDecoder(nn.Module):
                  dropout,
                  return_intermediate=False):
         super().__init__()
-        self.layers = nn.ModuleList([
+        self.decoder_layers = nn.ModuleList([
             TransformerDecoderLayer(d_model=d_model,
                                     nhead=nhead,
                                     dim_feedforward=dim_ffn,
@@ -112,12 +115,14 @@ class TransformerDecoder(nn.Module):
 
         return pe.reshape(-1, 1, height * width).permute(2, 1, 0)  # hw, 1, 512
 
-    def forward(self, vis, txt, pad_mask):
+    def forward(self, vis_feats, txt, pad_mask):
         '''
+            vis_feats = vis1, vis2, vis3
             vis: b, 512, h, w
             txt: b, L, 512
             pad_mask: b, L
         '''
+        vis = vis_feats[0]  # first fusion
         B, C, H, W = vis.size()
         _, L, D = txt.size()
         # position encoding
@@ -129,8 +134,8 @@ class TransformerDecoder(nn.Module):
         # forward
         output = vis
         intermediate = []
-        for layer in self.layers:
-            output = layer(output, txt, vis_pos, txt_pos, pad_mask)
+        for decoder in self.decoder_layers:
+            output = decoder(output, txt, vis_pos, txt_pos, pad_mask, vis_feats)
             if self.return_intermediate:
                 # HW, b, 512 -> b, 512, HW
                 intermediate.append(self.norm(output).permute(1, 2, 0))
@@ -171,6 +176,7 @@ class TransformerDecoderLayer(nn.Module):
                                  nn.ReLU(True), nn.Dropout(dropout),
                                  nn.LayerNorm(dim_feedforward),
                                  nn.Linear(dim_feedforward, d_model))
+        self.gate = ScaleGate(nhead, d_model)
         # LayerNorm & Dropout
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
@@ -182,13 +188,14 @@ class TransformerDecoderLayer(nn.Module):
     def with_pos_embed(self, tensor, pos):
         return tensor if pos is None else tensor + pos.to(tensor.device)
 
-    def forward(self, vis, txt, vis_pos, txt_pos, pad_mask):
+    def forward(self, vis, txt, vis_pos, txt_pos, pad_mask, vis_feats):
         '''
             vis: 26*26, b, 512
             txt: L, b, 512
             vis_pos: 26*26, 1, 512
             txt_pos: L, 1, 512
-            pad_mask: b, L
+            pad_mask: b, L,
+            vis_feats: 26*26, b, 512 * 3
         '''
         # Self-Attention
         vis2 = self.norm1(vis)
@@ -204,6 +211,7 @@ class TransformerDecoderLayer(nn.Module):
                                    value=txt,
                                    key_padding_mask=pad_mask)[0]
         vis2 = self.cross_attn_norm(vis2)
+        vis2 = self.gate(vis2, vis_feats) 
         vis = vis + self.dropout2(vis2)
         
         # FFN
@@ -236,10 +244,11 @@ class FPN(nn.Module):
         self.f4_proj4 = conv_layer(out_channels[1], out_channels[1], 3, 1)
         self.f4_proj3 = conv_layer(out_channels[1], out_channels[1], 3, 1)
         # aggregation
-        self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
-        self.coordconv = nn.Sequential(
-            CoordConv(out_channels[1], out_channels[1], 3, 1),
-            conv_layer(out_channels[1], out_channels[1], 3, 1))
+        # self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
+        # self.coordconv = nn.Sequential(
+        #     CoordConv(out_channels[1], out_channels[1], 3, 1),
+        #     conv_layer(out_channels[1], out_channels[1], 3, 1)
+        # )
 
     def forward(self, imgs, state):
         # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
@@ -264,11 +273,11 @@ class FPN(nn.Module):
         fq3 = self.f4_proj3(f3)
         # query
         fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
-        fq = torch.cat([fq3, fq4, fq5], dim=1)
-        fq = self.aggr(fq)
-        fq = self.coordconv(fq)
+        # fq = torch.cat([fq3, fq4, fq5], dim=1)
+        # fq = self.aggr(fq)
+        # fq = self.coordconv(fq)
         # b, 512, 26, 26
-        return fq
+        return fq3, fq4, fq5
 
 class newFPN(nn.Module):
     def __init__(self,
@@ -301,10 +310,10 @@ class newFPN(nn.Module):
         self.f4_proj4 = conv_layer(out_channels[1], out_channels[1], 3, 1)
         self.f4_proj3 = conv_layer(out_channels[1], out_channels[1], 3, 1)
         # aggregation
-        self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
-        self.coordconv = nn.Sequential(
-            CoordConv(out_channels[1], out_channels[1], 3, 1),
-            conv_layer(out_channels[1], out_channels[1], 3, 1))
+        # self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
+        # self.coordconv = nn.Sequential(
+        #     CoordConv(out_channels[1], out_channels[1], 3, 1),
+        #     conv_layer(out_channels[1], out_channels[1], 3, 1))
 
     def forward(self, imgs, state):
         # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
@@ -339,12 +348,16 @@ class newFPN(nn.Module):
         
         # query
         fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
-        fq = torch.cat([fq3, fq4, fq5], dim=1)
-        fq = self.aggr(fq)
-        fq = self.coordconv(fq)
         
         # b, 512, 26, 26
-        return fq
+        return fq3, fq4, fq5
+        
+        # fq = torch.cat([fq3, fq4, fq5], dim=1)
+        # fq = self.aggr(fq)
+        # fq = self.coordconv(fq)
+        
+        # # b, 512, 26, 26
+        # return fq
 
 class Projector(nn.Module):
     def __init__(self, word_dim=1024, in_dim=256, kernel_size=3):
@@ -385,4 +398,21 @@ class Projector(nn.Module):
         out = out.transpose(0, 1)
         # b, 1, 104, 104
         return out
+
+class ScaleGate(nn.Module):
+    def __init__(self, in_dim, out_dim):
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(in_dim, out_dim),
+            nn.LayerNorm(out_dim),
+            nn.Linear(out_dim, out_dim),
+            nn.GELU(),
+            nn.Linear(out_dim, out_dim),
+            # nn.Softmax()
+        )
+    def forward(self, x, vis_feats):
+        result = self.layers(x)
+        result = result @ vis_feats
+        return x
+
 
