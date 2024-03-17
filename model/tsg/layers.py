@@ -124,8 +124,6 @@ class TransformerDecoder(nn.Module):
             txt: b, L, 512
             pad_mask: b, L
         '''
-        if type(vis_feats) != torch.TensorType:
-            vis_feats = torch.concat(vis_feats, dim=1)
         vis = vis_feats.chunk(3, dim=1)[0]  # first fusion
         B, C, H, W = vis.size()
         _, L, D = txt.size()
@@ -280,11 +278,12 @@ class FPN(nn.Module):
         fq3 = self.f4_proj3(f3)
         # query
         fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
-        # fq = torch.cat([fq3, fq4, fq5], dim=1)
+        fq = torch.cat([fq3, fq4, fq5], dim=1)
         # fq = self.aggr(fq)
         # fq = self.coordconv(fq)
         # b, 512, 26, 26
-        return fq3, fq4, fq5
+        # return fq3, fq4, fq5
+        return fq
 
 class newFPN(nn.Module):
     def __init__(self,
@@ -357,14 +356,14 @@ class newFPN(nn.Module):
         fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
         
         # b, 512, 26, 26
-        return fq3, fq4, fq5
+        # return fq3, fq4, fq5
         
-        # fq = torch.cat([fq3, fq4, fq5], dim=1)
+        fq = torch.cat([fq3, fq4, fq5], dim=1)
         # fq = self.aggr(fq)
         # fq = self.coordconv(fq)
         
         # # b, 512, 26, 26
-        # return fq
+        return fq
 
 class Projector(nn.Module):
     def __init__(self, word_dim=1024, in_dim=256, kernel_size=3):
