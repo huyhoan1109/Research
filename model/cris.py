@@ -57,9 +57,9 @@ class CRIS(nn.Module):
 
         # b, 512, 26, 26 (C4)
         fq = self.neck(vis, state)
-        # b, c, h, w = fq.size()
+        b, c, h, w = fq.size()
         fq = self.decoder(fq, word, pad_mask)
-        # fq = fq.reshape(b, c, h, w)
+        fq = fq.reshape(b, c, h, w)
 
         # b, 1, 104, 104
         pred = self.proj(fq, state)
