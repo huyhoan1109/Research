@@ -129,19 +129,19 @@ class TransformerDecoder(nn.Module):
         vis_pos = self.pos2d(C, H, W)
         txt_pos = self.pos1d(D, L)
         # reshape & permute
-        vis = vis.reshape(B, C, -1).permute(2, 0, 1)
-        txt = txt.permute(1, 0, 2)
+        vis = vis.reshape(B, C, -1).permute(2, 0, 1) # B, C, HxW => HxW, B, C
+        txt = txt.permute(1, 0, 2)  # B, L, C => L, B, C  
         # forward
         output = vis
         intermediate = []
         for decoder in self.decoder_layers:
             output = decoder(output, txt, vis_pos, txt_pos, pad_mask, vis_feats)
             if self.return_intermediate:
-                # HW, b, 512 -> b, 512, HW
+                # HxW, b, 512 -> b, 512, HxW
                 intermediate.append(self.norm(output).permute(1, 2, 0))
 
         if self.norm is not None:
-            # HW, b, 512 -> b, 512, HW
+            # HxW, b, 512 -> b, 512, HxW
             output = self.norm(output).permute(1, 2, 0)
             if self.return_intermediate:
                 intermediate.pop()
@@ -211,7 +211,8 @@ class TransformerDecoderLayer(nn.Module):
                                    value=txt,
                                    key_padding_mask=pad_mask)[0]
         vis2 = self.cross_attn_norm(vis2)
-        vis2 = self.gate(vis2, vis_feats) 
+        print(vis2.size(), vis_feats.size())
+        # vis2 = self.gate(vis2, vis_feats) 
         vis = vis + self.dropout2(vis2)
         
         # FFN
