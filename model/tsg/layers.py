@@ -122,14 +122,17 @@ class TransformerDecoder(nn.Module):
             txt: b, L, 512
             pad_mask: b, L
         '''
-        vis = vis_feats[0]  # first fusion
+        if type(vis_feats) != torch.TensorType:
+            vis_feats = torch.concat(*vis_feats, dim=1)
+        vis = vis_feats.chunk(3, dim=1)[0]  # first fusion
         B, C, H, W = vis.size()
         _, L, D = txt.size()
         # position encoding
         vis_pos = self.pos2d(C, H, W)
         txt_pos = self.pos1d(D, L)
         # reshape & permute
-        vis = vis.reshape(B, C, -1).permute(2, 0, 1) # B, C, HxW => HxW, B, C
+        vis = vis.reshape(B, C, -1).permute(2, 0, 1) # B, 512, HxW => HxW, B, 512
+        vis_feats.permute(B, 3 * C, -1).permute(2, 0, 1) # B, 512 * 3, H, W => HxW, B, 512 * 3
         txt = txt.permute(1, 0, 2)  # B, L, C => L, B, C  
         # forward
         output = vis
@@ -176,7 +179,6 @@ class TransformerDecoderLayer(nn.Module):
                                  nn.ReLU(True), nn.Dropout(dropout),
                                  nn.LayerNorm(dim_feedforward),
                                  nn.Linear(dim_feedforward, d_model))
-        self.gate = ScaleGate(nhead, d_model)
         # LayerNorm & Dropout
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
@@ -200,7 +202,10 @@ class TransformerDecoderLayer(nn.Module):
         # Self-Attention
         vis2 = self.norm1(vis)
         q = k = self.with_pos_embed(vis2, vis_pos)
-        vis2 = self.self_attn(q, k, value=vis2)[0]
+        # vis2 = self.self_attn(q, k, value=vis2)[0]
+        vis2 = self.self_attn(q, k, value=vis2)
+        print(vis2.size())    
+        pass
         vis2 = self.self_attn_norm(vis2)
         vis = vis + self.dropout1(vis2)
         
@@ -211,8 +216,7 @@ class TransformerDecoderLayer(nn.Module):
                                    value=txt,
                                    key_padding_mask=pad_mask)[0]
         vis2 = self.cross_attn_norm(vis2)
-        print(vis2.size(), vis_feats.size())
-        # vis2 = self.gate(vis2, vis_feats) 
+        
         vis = vis + self.dropout2(vis2)
         
         # FFN
@@ -409,7 +413,6 @@ class ScaleGate(nn.Module):
             nn.Linear(out_dim, out_dim),
             nn.GELU(),
             nn.Linear(out_dim, out_dim),
-            # nn.Softmax()
         )
     def forward(self, x, vis_feats):
         result = self.layers(x)
