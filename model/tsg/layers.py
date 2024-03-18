@@ -130,7 +130,6 @@ class TransformerDecoder(nn.Module):
         vis = torch.zeros_like(vis_chunk[0])
         for v in vis_chunk:
             vis += v
-        vis = vis / self.num_stages
         B, C, H, W = vis.size()
         _, L, D = txt.size()
         # position encoding
@@ -441,7 +440,6 @@ class ScaleGate(nn.Module):
         output = torch.zeros_like(vis_chunk[0])
         for v in vis_chunk:
             output += v
-        output = output / self.num_stages
         B, C, H, W = output.size()
         return output.reshape(B, C, -1).permute(2, 0, 1)
 
