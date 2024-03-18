@@ -126,10 +126,7 @@ class TransformerDecoder(nn.Module):
             txt: b, L, 512
             pad_mask: b, L
         '''
-        all_vis = torch.chunk(vis_feats, self.num_stages, dim=1)
-        vis = torch.zeros_like(all_vis[0])
-        for tens in all_vis:
-            vis += tens
+        vis = torch.sum(vis_feats, keepdim=False, dim=1) / self.num_stages
         B, C, H, W = vis.size()
         _, L, D = txt.size()
         # position encoding
@@ -430,25 +427,14 @@ class ScaleGate(nn.Module):
             nn.LayerNorm(d_model),
             nn.Linear(d_model, d_model),
             nn.GELU(),
-            nn.Linear(d_model, num_stages)
+            nn.Linear(d_model, num_stages * d_model),
         )
     def forward(self, x, vis_feats):
+        shape = vis_feats.size()
         x = self.layers(x)
-        shape = x.size()
-        x.permute(2, 0, 1).reshape(shape[2], -1)
-        x = F.softmax(x, dim=1)
-        x.reshape(shape[0], shape[1], -1)
-        # [676, 2, 3], [2, 1536, 26, 26]
-        vis_chunk = torch.chunk(vis_feats, self.num_stages, 1)
-        B, C, H, W = vis_chunk[0].size()
-        # x: C, HxW, B, num_stages
-        x = x.repeat(C, 1, 1, 1)
-        # x: B, num_stages, C, HxW
-        x = x.permute(2, 3, 0, 1)
-        # vis: B, num_stages, C, HxW
-        vis = torch.reshape(vis_feats, (B, self.num_stages, C, -1))
-        output = x * vis
-        output = torch.sum(output, keepdim=False, dim=1).permute(2, 0, 1)
+        x.permute(1, 2, 0).reshape(shape)
+        output = F.softmax(x, dim=1) * vis_feats
+        output = torch.sum(output, keepdim=False, dim=1).permute(2, 0, 1) / self.num_stages
         return output
 
 
