@@ -126,7 +126,11 @@ class TransformerDecoder(nn.Module):
             txt: b, L, 512
             pad_mask: b, L
         '''
-        vis = torch.sum(vis_feats, keepdim=False, dim=1) / self.num_stages
+        vis_chunk = torch.chunk(vis_feats, dim=1)
+        vis = torch.zeros_like(vis_chunk[0])
+        for v in vis_chunk:
+            vis += v
+        vis = vis / self.num_stages
         B, C, H, W = vis.size()
         _, L, D = txt.size()
         # position encoding
@@ -433,9 +437,13 @@ class ScaleGate(nn.Module):
         shape = vis_feats.size()
         x = self.layers(x)
         x.permute(1, 2, 0).reshape(shape)
-        output = F.softmax(x, dim=1) * vis_feats
-        output = torch.sum(output, keepdim=False, dim=1).permute(2, 0, 1) / self.num_stages
-        return output
+        product = F.softmax(x, dim=1) * vis_feats
+        vis_chunk = torch.chunk(product, 3, dim=1)
+        output = torch.zeros_like(vis_chunk[0])
+        for v in vis_chunk:
+            output += v
+        output = output / self.num_stages
+        return output.permute(2, 0, 1)
 
 
 
