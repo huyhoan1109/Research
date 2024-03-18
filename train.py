@@ -21,8 +21,8 @@ from torch.optim.lr_scheduler import MultiStepLR
 
 import utils.config as config
 import wandb
-from utils.dataset import RefDataset
-from engine.engine import train, validate
+# from utils.dataset import RefDataset
+# from engine.engine import train, validate
 from model import build_segmenter
 from utils.misc import (init_random_seed, set_random_seed, setup_logger,
                         worker_init_fn)
@@ -38,6 +38,9 @@ def get_parser():
                         default='path to xxx.yaml',
                         type=str,
                         help='config file')
+    parser.add_argument('--tsg',
+                        default=False,
+                        help='add transformer scale gate.')
     parser.add_argument('--opts',
                         default=None,
                         nargs=argparse.REMAINDER,
@@ -47,6 +50,8 @@ def get_parser():
     cfg = config.load_cfg_from_cfg_file(args.config)
     if args.opts is not None:
         cfg = config.merge_cfg_from_list(cfg, args.opts)
+    cfg.__setattr__('tsg', args.tsg)
+    print(cfg)
     return cfg
 
 
