@@ -230,7 +230,6 @@ class TransformerDecoderLayer(nn.Module):
             key=self.with_pos_embed(txt, txt_pos),
             value=txt,
             key_padding_mask=pad_mask,
-            average_attn_weights=False
         )
         vis2 = self.cross_attn_norm(vis2)
         # [676, B, 512]
@@ -436,14 +435,15 @@ class ScaleGate(nn.Module):
     def forward(self, x, vis_feats):
         shape = vis_feats.size()
         x = self.layers(x)
-        x.permute(1, 2, 0).reshape(shape)
+        x = x.permute(1, 2, 0).reshape(shape)
         product = F.softmax(x, dim=1) * vis_feats
         vis_chunk = torch.chunk(product, self.num_stages, dim=1)
         output = torch.zeros_like(vis_chunk[0])
         for v in vis_chunk:
             output += v
         output = output / self.num_stages
-        return output.permute(2, 0, 1)
+        B, C, H, W = output.size()
+        return output.reshape(B, C, -1).permute(2, 0, 1)
 
 
 

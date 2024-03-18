@@ -50,7 +50,6 @@ class CRIS(nn.Module):
         '''
         # padding mask used in decoder
         pad_mask = torch.zeros_like(word).masked_fill_(word == 0, 1).bool()
-
         # vis: C3 / C4 / C5
         # word: b, length, 1024
         # state: b, 1024
@@ -64,7 +63,6 @@ class CRIS(nn.Module):
         out = out.reshape(b, h, w, -1).permute(0, 3, 1, 2)
         # b, 1, 104, 104
         pred = self.proj(out, state)
-
         if self.training:
             # resize mask
             if pred.shape[-2:] != mask.shape[-2:]:
