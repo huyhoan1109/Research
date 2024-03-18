@@ -126,7 +126,7 @@ class TransformerDecoder(nn.Module):
             txt: b, L, 512
             pad_mask: b, L
         '''
-        vis_chunk = torch.chunk(vis_feats, dim=1)
+        vis_chunk = torch.chunk(vis_feats, self.num_stages, dim=1)
         vis = torch.zeros_like(vis_chunk[0])
         for v in vis_chunk:
             vis += v
@@ -438,7 +438,7 @@ class ScaleGate(nn.Module):
         x = self.layers(x)
         x.permute(1, 2, 0).reshape(shape)
         product = F.softmax(x, dim=1) * vis_feats
-        vis_chunk = torch.chunk(product, 3, dim=1)
+        vis_chunk = torch.chunk(product, self.num_stages, dim=1)
         output = torch.zeros_like(vis_chunk[0])
         for v in vis_chunk:
             output += v
