@@ -39,6 +39,7 @@ def get_parser():
                         type=str,
                         help='config file')
     parser.add_argument('--tsg',
+                        type=bool,
                         default=False,
                         help='add transformer scale gate.')
     parser.add_argument('--opts',
