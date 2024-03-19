@@ -15,7 +15,7 @@ def calculate_metrics(pred, target, dim, smooth=1e-6, ths=0.5):
     rec = (recs > ths).float().mean()
 
     return {
-        'iou': iou * 100,
-        'precision': prec * 100,
-        'recall': rec * 100,
+        'iou': iou,
+        'precision': prec,
+        'recall': rec,
     }
