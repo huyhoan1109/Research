@@ -9,7 +9,7 @@ import inspect
 import torch
 from torch import nn
 import torch.distributed as dist
-
+from . import metrics
 
 def init_random_seed(seed=None, device='cuda', rank=0, world_size=1):
     """Initialize random seed."""
@@ -119,14 +119,8 @@ def trainMetricGPU(output, target, threshold=0.35, pr_iou=0.5):
     output = torch.sigmoid(output)
     output[output < threshold] = 0.
     output[output >= threshold] = 1.
-    # inter & union
-    inter = (output.bool() & target.bool()).sum(dim=1)  # b
-    union = (output.bool() | target.bool()).sum(dim=1)  # b
-    ious = inter / (union + 1e-6)  # 0 ~ 1
-    # iou & pr@5
-    iou = ious.mean()
-    prec = (ious > pr_iou).float().mean()
-    return 100. * iou, 100. * prec
+    result = metrics.calculate_metrics(output, target, dim=1)
+    return 100. * result['iou'], 100. * result['precision'], 100. * result['recall']
 
 
 def ValMetricGPU(output, target, threshold=0.35):
@@ -153,7 +147,6 @@ def intersectionAndUnionGPU(output, target, K, threshold=0.5):
     output = torch.sigmoid(output)
     output[output < threshold] = 0.
     output[output >= threshold] = 1.
-
     intersection = output[output == target]
     area_intersection = torch.histc(intersection.float(),
                                     bins=K,

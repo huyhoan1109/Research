@@ -21,11 +21,12 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
     loss_meter = AverageMeter('Loss', ':2.4f')
     iou_meter = AverageMeter('IoU', ':2.2f')
     pr_meter = AverageMeter('Prec@50', ':2.2f')
+    rec_meter = AverageMeter('Rec@50', ':2.2f')
     progress = ProgressMeter(
         len(train_loader),
         [batch_time, data_time, lr, loss_meter, iou_meter, pr_meter],
-        prefix="Training: Epoch=[{}/{}] ".format(epoch, args.epochs))
-
+        prefix="Training: Epoch=[{}/{}] ".format(epoch, args.epochs)
+    )
     model.train()
     time.sleep(2)
     end = time.time()
@@ -57,19 +58,24 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
         scaler.update()
 
         # metric
-        iou, pr5 = trainMetricGPU(pred, target, 0.35, 0.5)
+        iou, pr5, rec5 = trainMetricGPU(pred, target, 0.35, 0.5)
         dist.all_reduce(loss.detach())
         dist.all_reduce(iou)
         dist.all_reduce(pr5)
+        dist.all_reduce(rec5)
+        
         loss = loss / dist.get_world_size()
         iou = iou / dist.get_world_size()
         pr5 = pr5 / dist.get_world_size()
-
+        rec5 = rec5 / dist.get_world_size()
+        
         loss_meter.update(loss.item(), image.size(0))
         iou_meter.update(iou.item(), image.size(0))
         pr_meter.update(pr5.item(), image.size(0))
+        rec_meter.update(rec5.item(), image.size(0))
         lr.update(scheduler.get_last_lr()[-1])
         batch_time.update(time.time() - end)
+        
         end = time.time()
 
         if (i + 1) % args.print_freq == 0:
@@ -83,8 +89,10 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
                         "training/loss": loss_meter.val,
                         "training/iou": iou_meter.val,
                         "training/prec@50": pr_meter.val,
+                        "training/rec@50": rec_meter.val
                     },
-                    step=epoch * len(train_loader) + (i + 1))
+                    step=epoch * len(train_loader) + (i + 1)
+                )
 
 
 @torch.no_grad()
