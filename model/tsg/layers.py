@@ -264,10 +264,10 @@ class FPN(nn.Module):
         self.f4_proj3 = conv_layer(out_channels[1], out_channels[1], 3, 1)
         # aggregation
         # self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
-        self.coordconv = nn.Sequential(
-            CoordConv(out_channels[1] * 3, out_channels[1] * 3, 3, 1),
-            conv_layer(out_channels[1] * 3, out_channels[1] * 3, 3, 1)
-        )
+        # self.coordconv = nn.Sequential(
+        #     CoordConv(out_channels[1] * 3, out_channels[1] * 3, 3, 1),
+        #     conv_layer(out_channels[1] * 3, out_channels[1] * 3, 3, 1)
+        # )
 
     def forward(self, imgs, state):
         # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
@@ -294,7 +294,7 @@ class FPN(nn.Module):
         fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
         fq = torch.cat([fq3, fq4, fq5], dim=1)
         # fq = self.aggr(fq)
-        fq = self.coordconv(fq)
+        # fq = self.coordconv(fq)
         # b, 512, 26, 26
         # return fq3, fq4, fq5
         return fq
@@ -331,10 +331,10 @@ class newFPN(nn.Module):
         self.f4_proj3 = conv_layer(out_channels[1], out_channels[1], 3, 1)
         # aggregation
         # self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
-        self.coordconv = nn.Sequential(
-            CoordConv(out_channels[1] * 3, out_channels[1], 3, 1),
-            conv_layer(out_channels[1] * 3, out_channels[1], 3, 1)
-        )
+        # self.coordconv = nn.Sequential(
+        #     CoordConv(out_channels[1] * 3, out_channels[1], 3, 1),
+        #     conv_layer(out_channels[1] * 3, out_channels[1], 3, 1)
+        # )
 
     def forward(self, imgs, state):
         # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
@@ -375,7 +375,7 @@ class newFPN(nn.Module):
         
         fq = torch.cat([fq3, fq4, fq5], dim=1)
         # fq = self.aggr(fq)
-        fq = self.coordconv(fq)
+        # fq = self.coordconv(fq)
         
         # # b, 512, 26, 26
         return fq
