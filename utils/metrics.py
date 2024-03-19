@@ -6,10 +6,10 @@ def calculate_metrics(pred, target, dim, smooth=1e-6, ths=0.5):
     fp_mask = (target == 1) & (pred == 0)
     fn_mask = (target == 0) & (pred == 1)
     
-    tp = union[tp_mask]
-    tn = union[tn_mask]
-    fp = union[fp_mask]
-    fn = union[fn_mask]
+    tp = union[tp_mask].sum(dim=dim)
+    tn = union[tn_mask].sum(dim=dim)
+    fp = union[fp_mask].sum(dim=dim)
+    fn = union[fn_mask].sum(dim=dim)
     
     ious = (tp+smooth)/(tp+tn+smooth)
     iou = ious.mean()
