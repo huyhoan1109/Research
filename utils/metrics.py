@@ -1,22 +1,14 @@
 def calculate_metrics(pred, target, dim, smooth=1e-6, ths=0.5):
-    union = (pred.bool() | target.bool()) 
+    pred_b = pred.bool()
+    target_b = target.bool()
+    tp = (pred_b & target_b).sum(dim=dim)
+    fn = ((pred_b == False) & (target_b == True)).sum(dim=dim)
+    union = (pred.bool() | target.bool()).sum(dim=dim)  
     
-    tp_mask = (target == 1) & (pred == 1)
-    tn_mask = (target == 0) & (pred == 0)
-    fp_mask = (target == 1) & (pred == 0)
-    fn_mask = (target == 0) & (pred == 1)
-    
-    tp = union[tp_mask].sum(dim=dim)
-    tn = union[tn_mask].sum(dim=dim)
-    fp = union[fp_mask].sum(dim=dim)
-    fn = union[fn_mask].sum(dim=dim)
-    
-    ious = (tp+smooth)/(tp+tn+smooth)
+    ious = (tp + smooth) / (union + smooth)
     iou = ious.mean()
 
-    precs = (tp+smooth)/(tp+fp+smooth)
-    precs = precs.mean()
-    prec = (precs > ths).float().mean()
+    prec = (ious > ths).float().mean()
     
     recs = (tp+smooth)/(tp+fn+smooth)
     recs = recs.mean()
