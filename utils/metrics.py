@@ -1,5 +1,5 @@
 def calculate_metrics(pred, target, dim, smooth=1e-6, ths=0.5):
-    union = (pred.bool() | target.bool()).sum(dim=dim)  
+    union = (pred.bool() | target.bool()) 
     
     tp_mask = (target == 1) & (pred == 1)
     tn_mask = (target == 0) & (pred == 0)
