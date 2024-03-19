@@ -171,8 +171,8 @@ class TransformerDecoderLayer(nn.Module):
                  dropout=0.1):
         super().__init__()
         # Normalization Layer
-        self.self_attn_norm = nn.LayerNorm(d_model)
-        self.cross_attn_norm = nn.LayerNorm(d_model)
+        self.vis_norm = nn.LayerNorm(d_model)
+        self.vis_txt_norm = nn.LayerNorm(d_model)
         # Attention Layer
         self.vis_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         self.vis_txt_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, kdim=d_model, vdim=d_model)
@@ -217,10 +217,10 @@ class TransformerDecoderLayer(nn.Module):
             value=vis2,
         ) 
         # (26x26, B, 512)
+        vis2 = self.vis_norm(vis2)
         vis2 = self.scale_gate(vis2, vis_feats)
-        vis2 = self.self_attn_norm(vis2)
         vis = vis + self.dropout1(vis2)
-        
+
         # Cross-Attention
         vis2 = self.norm2(vis)
         # (26x26, B, 512), (B, nhead, 26x26, 17)
@@ -230,7 +230,7 @@ class TransformerDecoderLayer(nn.Module):
             value=txt,
             key_padding_mask=pad_mask,
         )
-        vis2 = self.cross_attn_norm(vis2)
+        vis2 = self.vis_txt_norm(vis2)
         # [676, B, 512]
         vis = vis + self.dropout2(vis2)
         # FFN
@@ -426,10 +426,10 @@ class ScaleGate(nn.Module):
         self.d_model = d_model
         self.num_stages = num_stages
         self.layers = nn.Sequential(
-            nn.LayerNorm(d_model),
             nn.Linear(d_model, d_model),
             nn.GELU(),
             nn.Linear(d_model, num_stages * d_model),
+            nn.GELU(),
         )
     def forward(self, x, vis_feats):
         shape = vis_feats.size()
