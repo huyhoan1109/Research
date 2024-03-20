@@ -92,18 +92,11 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
 
 @torch.no_grad()
 def validate(val_loader, model, epoch, args):
+    iou_list = []
     model.eval()
     time.sleep(2)
-    iou_meter = AverageMeter('IoU', ':2.2f')
-    pr_meters = [AverageMeter(f'Prec@{i}0', ':2.2f') for i in range(5, 10)]
-    progress = ProgressMeter(
-        len(val_loader),
-        [iou_meter, *pr_meters],
-        prefix="Evaluation: Epoch=[{}/{}] ".format(epoch, args.epochs)
-    )
     for imgs, texts, param in val_loader:
         # data
-        iou_batch = []
         imgs = imgs.cuda(non_blocking=True)
         texts = texts.cuda(non_blocking=True)
         # inference
@@ -130,32 +123,27 @@ def validate(val_loader, model, epoch, args):
             # iou
             inter = np.logical_and(pred, mask)
             union = np.logical_or(pred, mask)
-            ious = np.sum(inter) / (np.sum(union) + 1e-6)
-            iou_batch.append(ious)
-        iou_batch = np.stack(iou_batch)
-        iou_batch = torch.from_numpy(iou_batch).to(imgs.device)
-        iou_batch = concat_all_gather(iou_batch)
-        iou = iou_batch.mean()
-        iou_meter.update(iou.item(), imgs.size())
-        
-        for i in range(5, 10):
-            thres = torch.tensor(i/10).float()
-            tmp = (iou_batch > thres).float().mean()
-            pr_meters[i-5].update(tmp.item(), imgs.size()[0])
-
-        if (i + 1) % args.print_freq == 0:
-            progress.display(i + 1)
-            if dist.get_rank() in [-1, 0]:
-                val_precs = dict({
-                    "val/iou": iou_meter.val
-                })
-                for i in range(5, 10):
-                    val_precs[f"val/prec@{i}0"] = pr_meters[i-5].val
-                wandb.log(
-                    val_precs,
-                    step=epoch * len(val_loader) + (i + 1)
-                )
-    return iou_meter.val, pr_meters[0].val
+            iou = np.sum(inter) / (np.sum(union) + 1e-6)
+            iou_list.append(iou)
+    iou_list = np.stack(iou_list)
+    iou_list = torch.from_numpy(iou_list).to(imgs.device)
+    iou_list = concat_all_gather(iou_list)
+    prec_list = []
+    for thres in torch.arange(0.5, 1.0, 0.1):
+        tmp = (iou_list > thres).float().mean()
+        prec_list.append(tmp)
+    iou = iou_list.mean()
+    prec = {}
+    temp = '  '
+    for i, thres in enumerate(range(5, 10)):
+        key = 'Pr@{}'.format(thres * 10)
+        value = prec_list[i].item()
+        prec[key] = value
+        temp += "{}: {:.2f}  ".format(key, 100. * value)
+    head = 'Evaluation: Epoch=[{}/{}]  IoU={:.2f}'.format(
+        epoch, args.epochs, 100. * iou.item())
+    logger.info(head + temp)
+    return iou.item(), prec
 
 @torch.no_grad()
 def inference(test_loader, model, args):

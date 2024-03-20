@@ -25,7 +25,7 @@ from utils.dataset import RefDataset
 from engine.engine import train, validate
 from model import build_segmenter
 from utils.misc import (init_random_seed, set_random_seed, setup_logger,
-                        worker_init_fn)
+                        worker_init_fn, AverageMeter, ProgressMeter)
 
 warnings.filterwarnings("ignore")
 cv2.setNumThreads(0)
@@ -196,8 +196,16 @@ def main_worker(gpu, args):
         # evaluation
         iou, prec_dict = validate(val_loader, model, epoch_log, args)
 
-        # save model
         if dist.get_rank() == 0:
+            # loggin
+            log = dict({
+                'eval/iou': iou,
+            })
+            for key in prec_dict.keys():
+                log_key = key.lower()
+                log[f'eval/{log_key}'] = prec_dict[key]
+            wandb.log(log, step=epoch)
+            # save model
             lastname = os.path.join(args.output_dir, "last_model.pth")
             torch.save(
                 {
