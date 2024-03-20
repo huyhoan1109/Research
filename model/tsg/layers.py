@@ -181,13 +181,13 @@ class TransformerDecoderLayer(nn.Module):
         self.scale_gate = ScaleGate(d_model, num_stages)
         
         # FFN
-        self.ffn = nn.Sequential(
-            nn.Linear(d_model, dim_feedforward),
-            nn.ReLU(True), 
-            nn.Dropout(dropout),
-            nn.LayerNorm(dim_feedforward),
-            nn.Linear(dim_feedforward, d_model)
-        )
+        # self.ffn = nn.Sequential(
+        #     nn.Linear(d_model, dim_feedforward),
+        #     nn.ReLU(True), 
+        #     nn.Dropout(dropout),
+        #     nn.LayerNorm(dim_feedforward),
+        #     nn.Linear(dim_feedforward, d_model)
+        # )
         # LayerNorm & Dropout
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
@@ -235,7 +235,7 @@ class TransformerDecoderLayer(nn.Module):
         vis = vis + self.dropout2(vis2)
         # FFN
         vis2 = self.norm3(vis)
-        vis2 = self.ffn(vis2)
+        vis2 = self.scale_gate(vis2, vis_feats)
         vis = vis + self.dropout3(vis2)
         return vis
 
