@@ -9,13 +9,8 @@ def calculate_metrics(pred, target, dim, smooth=1e-6, ths=0.5):
     iou = ious.mean()
 
     prec = (ious > ths).float().mean()
-    
-    recs = (tp+smooth)/(tp+fn+smooth)
-    recs = recs.mean()
-    rec = (recs > ths).float().mean()
 
     return {
         'iou': iou,
         'precision': prec,
-        'recall': rec,
     }

@@ -119,8 +119,8 @@ def trainMetricGPU(output, target, threshold=0.35, pr_iou=0.5):
     output = torch.sigmoid(output)
     output[output < threshold] = 0.
     output[output >= threshold] = 1.
-    result = metrics.calculate_metrics(output, target, dim=1)
-    return 100. * result['iou'], 100. * result['precision'], 100. * result['recall']
+    result = metrics.calculate_metrics(output, target, dim=1, ths=pr_iou)
+    return 100. * result['iou'], 100. * result['precision']
 
 
 def ValMetricGPU(output, target, threshold=0.35):
