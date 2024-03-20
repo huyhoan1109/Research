@@ -132,7 +132,7 @@ def validate(val_loader, model, epoch, args):
             union = np.logical_or(pred, mask)
             ious = np.sum(inter) / (np.sum(union) + 1e-6)
             iou_batch.append(ious)
-
+        iou_batch = np.stack(iou_batch)
         iou_batch = torch.from_numpy(iou_batch).to(imgs.device)
         iou_batch = concat_all_gather(iou_batch)
         iou = iou_batch.mean()
