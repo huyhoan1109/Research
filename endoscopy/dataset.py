@@ -31,19 +31,19 @@ class EndosDataset(Dataset):
         self.transform = init_transform(input_size)
 
         with open(f'{dataset}/{split}.txt', 'r') as f:
-            ids = f.readlines()
+            split_ids = f.readlines()
             f.close()
         metadata = json.load(open(f'{dataset}/metadata.json'))
         self.data = dict()
-        for id in ids:
-            id = id.strip('\n')
-            self.data[id] = metadata[id]
+        for id, split_id in enumerate(split_ids):
+            split_id = split_id.strip('\n')
+            self.data[id] = metadata[split_id]
 
     def __len__(self):
         return len(self.data.keys())
 
     def __getitem__(self, idx):
-        sample = self.data[f"{idx+1}"]
+        sample = self.data[idx]
         
         ori_img = cv2.imread(os.path.join(self.image_path, sample['image']))
         img = cv2.cvtColor(ori_img, cv2.COLOR_BGR2RGB)
