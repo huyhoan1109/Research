@@ -8,27 +8,21 @@ import numpy as np
 import cv2
 from endoscopy.transform import *
 
-DATASET_PATH = 'endoscopy'
-root_endo = '/mnt/tuyenld/data/endoscopy/full_endo_data'
-# root_endo = '/home/Downloads/full_endo_data'
-IMG_PATH = root_endo + '/images'
-MASK_PATH = root_endo + '/mask_images'
-labels_path = root_endo + '/label_images'
+ROOT_PATH = '/mnt/tuyenld/data/endoscopy/full_endo_data'
 
 class EndosDataset(Dataset):
     def __init__(
             self, 
             input_size,
             word_length,
-            image_path=IMG_PATH,
-            mask_path=MASK_PATH,
-            file_path='endoscopy/metadata.json', 
+            root_path=ROOT_PATH,
+            dataset='./endoscopy', 
             split = 'train', 
             add_lesion = True,
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
         ):
-        self.image_path = image_path
-        self.mask_path = mask_path
+        self.image_path = root_path + '/images'
+        self.mask_path = root_path + '/mask_images'
         self.input_size = (input_size, input_size)
         self.word_length = word_length
         self.tokenizer = Tokenizer()
@@ -37,10 +31,10 @@ class EndosDataset(Dataset):
         self.add_lesion = add_lesion
         self.transform = init_transform(input_size)
 
-        with open(f'{DATASET_PATH}/{split}.txt', 'r') as f:
+        with open(f'{dataset}/{split}.txt', 'r') as f:
             ids = f.readlines()
             f.close()
-        metadata = json.load(open(file_path))
+        metadata = json.load(open(f'{dataset}/metadata.json'))
         self.data = dict()
         for id in ids:
             id = id.strip('\n')
