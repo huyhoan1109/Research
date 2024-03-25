@@ -8,11 +8,11 @@ import numpy as np
 import cv2
 from endoscopy.transform import *
 
-dataset_path = 'endoscopy'
+DATASET_PATH = 'endoscopy'
 root_endo = '/mnt/tuyenld/data/endoscopy/full_endo_data'
 # root_endo = '/home/Downloads/full_endo_data'
-image_path = root_endo + '/images'
-mask_path = root_endo + '/mask_images'
+IMG_PATH = root_endo + '/images'
+MASK_PATH = root_endo + '/mask_images'
 labels_path = root_endo + '/label_images'
 
 class EndosDataset(Dataset):
@@ -20,8 +20,8 @@ class EndosDataset(Dataset):
             self, 
             input_size,
             word_length,
-            image_path=image_path,
-            mask_path=mask_path,
+            image_path=IMG_PATH,
+            mask_path=MASK_PATH,
             file_path='endoscopy/metadata.json', 
             split = 'train', 
             add_lesion = True,
@@ -37,7 +37,7 @@ class EndosDataset(Dataset):
         self.add_lesion = add_lesion
         self.transform = init_transform(input_size)
 
-        with open(f'{dataset_path}/{split}.txt', 'r') as f:
+        with open(f'{DATASET_PATH}/{split}.txt', 'r') as f:
             ids = f.readlines()
             f.close()
         metadata = json.load(open(file_path))
