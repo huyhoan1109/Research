@@ -1,10 +1,8 @@
 import torch
 from torch.utils.data import Dataset, DataLoader,random_split
-from torchvision import transforms
 import json
 import os
 from utils.simple_tokenizer import Tokenizer
-import numpy as np
 import cv2
 from endoscopy.transform import *
 
@@ -21,6 +19,7 @@ class EndosDataset(Dataset):
             add_lesion = True,
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
         ):
+        super().__init__()
         self.image_path = root_path + '/images'
         self.mask_path = root_path + '/mask_images'
         self.input_size = (input_size, input_size)
@@ -53,8 +52,9 @@ class EndosDataset(Dataset):
                 
         prompt = f'This is an image of {sample["position"]}. The image is taken with {sample["color"]} mode.'
         
-        if sample['lesion'] and self.add_lesion:
-            prompt += f'Some diagnosed lesions are {", ".join(sample['lesion'])}.'
+        if ('lesion' in sample.keys()) and self.add_lesion:
+            lesions = ", ".join(sample['lesion'])
+            prompt += f' Some diagnosed lesions are {lesions}.'
 
         transformed = self.transform(image=img, mask=mask)
 
