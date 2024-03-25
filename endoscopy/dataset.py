@@ -16,6 +16,7 @@ class EndosDataset(Dataset):
             root_path=ROOT_PATH,
             dataset='./endoscopy', 
             split = 'train', 
+            add_color = True,
             add_lesion = True,
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
         ):
@@ -27,8 +28,9 @@ class EndosDataset(Dataset):
         self.tokenizer = Tokenizer()
         self.split = split
         self.device = device
+        self.add_color = add_color
         self.add_lesion = add_lesion
-        self.transform = init_transform(input_size)
+        self.transform = init_transform(input_size, split=split)
 
         with open(f'{dataset}/{split}.txt', 'r') as f:
             split_ids = f.readlines()
@@ -52,7 +54,7 @@ class EndosDataset(Dataset):
                 
         prompt = f'This is an image of {sample["position"]}.'
         
-        if ('color' in sample.keys()):
+        if ('color' in sample.keys()) and self.add_color:
             prompt += f' The image is taken with {sample["color"]} mode.'
 
         if ('lesion' in sample.keys()) and self.add_lesion:

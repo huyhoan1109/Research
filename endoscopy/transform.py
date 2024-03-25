@@ -10,13 +10,21 @@ try:
 except ImportError:
     BICUBIC = Image.BICUBIC
 
-def init_transform(size):
-    return A.Compose([
-        A.Resize(size, size), 
-        A.Normalize(
-            mean=(0.485, 0.456, 0.406), 
-            std=(0.229, 0.224, 0.225)
-        ), 
-        ToTensorV2()
-    ]
-)
+mean = [0.485, 0.456, 0.406]
+std = [0.229, 0.224, 0.225]
+
+def init_transform(size, split='train'):
+    if split == 'train' or split == 'val':
+        return A.Compose([
+            A.Resize(size, size),
+            A.RandomResizedCrop(size, size, scale=(0.2, 1.0), interpolation=3),
+            A.HorizontalFlip(),
+            A.Normalize(mean=mean, std=std),
+            ToTensorV2()
+        ])
+    else:
+        return A.Compose([
+            A.Resize(size, size),
+            A.Normalize(mean=mean, std=std),
+            ToTensorV2()
+        ])
