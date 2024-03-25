@@ -50,8 +50,11 @@ class EndosDataset(Dataset):
         
         mask = cv2.imread(os.path.join(self.mask_path, sample['mask']), cv2.IMREAD_GRAYSCALE)
                 
-        prompt = f'This is an image of {sample["position"]}. The image is taken with {sample["color"]} mode.'
+        prompt = f'This is an image of {sample["position"]}.'
         
+        if ('color' in sample.keys()):
+            prompt += f' The image is taken with {sample["color"]} mode.'
+
         if ('lesion' in sample.keys()) and self.add_lesion:
             lesions = ", ".join(sample['lesion'])
             prompt += f' Some diagnosed lesions are {lesions}.'
