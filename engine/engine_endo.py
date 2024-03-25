@@ -145,6 +145,7 @@ def inference(test_loader, model, args):
         target = data['mask'].cuda(non_blocking=True)
         word = data['word'].cuda(non_blocking=True)
         prompts = data['prompt']
+        img_ids = data['img_id']
         preds = model(img, word)
         preds = torch.sigmoid(preds)
         if preds.shape[-2:] != target.shape[-2:]:
@@ -152,7 +153,7 @@ def inference(test_loader, model, args):
                                 size=target.shape[-2:],
                                 mode='bicubic',
                                 align_corners=True).squeeze(1)
-        for pred, mask, sent in zip(preds, target, prompts):
+        for pred, mask, sent, img_id in zip(preds, target, prompts, img_ids):
             pred = np.array(pred > 0.35)
             mask = np.array(mask)
             # iou
@@ -162,11 +163,10 @@ def inference(test_loader, model, args):
             iou_list.append(iou)
             if args.visualize:
                 # dump image & mask
-                seg_name = data['img_name']
-                mask_name = '{}-mask.png'.format(seg_name)
+                mask_name = '{}-mask.png'.format(img_id)
                 cv2.imwrite(filename=os.path.join(args.vis_dir, mask_name), img=mask)
                 pred = np.array(pred*255, dtype=np.uint8)
-                pred_name = '{}-iou={:.2f}-{}.png'.format(seg_name, iou * 100, sent)
+                pred_name = '{}-iou={:.2f}-{}.png'.format(img_id, iou * 100, sent)
                 cv2.imwrite(filename=os.path.join(args.vis_dir, pred_name), img=pred)
     
     logger.info('=> Metric Calculation <=')

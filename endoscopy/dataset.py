@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import Dataset, DataLoader,random_split
+from torch.utils.data import Dataset
 import json
 import os
 from utils.simple_tokenizer import Tokenizer
@@ -63,5 +63,5 @@ class EndosDataset(Dataset):
             'mask': transformed['mask'] / 255.0, # change mask from [0, 255] => [0, 1]
             'prompt': prompt,
             'word': self.tokenizer.tokenize(prompt, self.word_length, True).squeeze(0),
-            'img_name': sample['image'],
+            'img_id': sample['image'].rsplit('.')[0],
         }

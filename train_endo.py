@@ -24,8 +24,7 @@ import utils.config as config
 import wandb
 from engine.engine_endo import train, validate
 from model import build_segmenter
-from utils.misc import (init_random_seed, set_random_seed, setup_logger,
-                        worker_init_fn, AverageMeter, ProgressMeter)
+from utils.misc import (init_random_seed, set_random_seed, setup_logger, worker_init_fn)
 
 warnings.filterwarnings("ignore")
 cv2.setNumThreads(0)
@@ -211,7 +210,9 @@ def main_worker(gpu, args):
                     'state_dict': model.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'scheduler': scheduler.state_dict()
-                }, lastname)
+                }, 
+                lastname
+            )
             if iou >= best_IoU:
                 best_IoU = iou
                 bestname = os.path.join(args.output_dir, "best_model.pth")

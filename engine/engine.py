@@ -10,8 +10,7 @@ import torch.nn.functional as F
 import wandb
 from loguru import logger
 from utils.dataset import tokenize
-from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather,
-                        trainMetricGPU)
+from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather, trainMetricGPU)
 
 
 def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
