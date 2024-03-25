@@ -43,7 +43,7 @@ class EndosDataset(Dataset):
         return len(self.data.keys())
 
     def __getitem__(self, idx):
-        sample = self.data[f"{idx}"]
+        sample = self.data[f"{idx+1}"]
         
         ori_img = cv2.imread(os.path.join(self.image_path, sample['image']))
         img = cv2.cvtColor(ori_img, cv2.COLOR_BGR2RGB)
