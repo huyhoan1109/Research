@@ -204,7 +204,7 @@ def main_worker(gpu, args):
             for key in prec_dict.keys():
                 log_key = key.lower()
                 log[f'eval/{log_key}'] = prec_dict[key]
-            wandb.log(log, step=epoch)
+            wandb.log(log, step=epoch_log)
             # save model
             lastname = os.path.join(args.output_dir, "last_model.pth")
             torch.save(

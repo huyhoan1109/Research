@@ -9,7 +9,7 @@ import torch
 import pickle5
 from torch.utils.data import Dataset
 
-from .simple_tokenizer import SimpleTokenizer as _Tokenizer
+from .simple_tokenizer import Tokenizer 
 
 info = {
     'refcoco': {
@@ -38,51 +38,6 @@ info = {
         'val-test': 5000
     }
 }
-_tokenizer = _Tokenizer()
-
-
-def tokenize(texts: Union[str, List[str]],
-             context_length: int = 77,
-             truncate: bool = False) -> torch.LongTensor:
-    """
-    Returns the tokenized representation of given input string(s)
-
-    Parameters
-    ----------
-    texts : Union[str, List[str]]
-        An input string or a list of input strings to tokenize
-
-    context_length : int
-        The context length to use; all CLIP models use 77 as the context length
-
-    truncate: bool
-        Whether to truncate the text in case its encoding is longer than the context length
-
-    Returns
-    -------
-    A two-dimensional tensor containing the resulting tokens, shape = [number of input strings, context_length]
-    """
-    if isinstance(texts, str):
-        texts = [texts]
-
-    sot_token = _tokenizer.encoder["<|startoftext|>"]
-    eot_token = _tokenizer.encoder["<|endoftext|>"]
-    all_tokens = [[sot_token] + _tokenizer.encode(text) + [eot_token]
-                  for text in texts]
-    result = torch.zeros(len(all_tokens), context_length, dtype=torch.long)
-
-    for i, tokens in enumerate(all_tokens):
-        if len(tokens) > context_length:
-            if truncate:
-                tokens = tokens[:context_length]
-                tokens[-1] = eot_token
-            else:
-                raise RuntimeError(
-                    f"Input {texts[i]} is too long for context length {context_length}"
-                )
-        result[i, :len(tokens)] = torch.tensor(tokens)
-
-    return result
 
 
 def loads_pyarrow(buf):
@@ -112,6 +67,7 @@ class RefDataset(Dataset):
                                  0.27577711]).reshape(3, 1, 1)
         self.length = info[dataset][split]
         self.env = None
+        self.tokenizer = Tokenizer()
 
     def _init_db(self):
         self.env = lmdb.open(self.lmdb_dir,
@@ -136,8 +92,7 @@ class RefDataset(Dataset):
             byteflow = txn.get(self.keys[index])
         ref = loads_pyarrow(byteflow)
         # img
-        ori_img = cv2.imdecode(np.frombuffer(ref['img'], np.uint8),
-                               cv2.IMREAD_COLOR)
+        ori_img = cv2.imdecode(np.frombuffer(ref['img'], np.uint8), cv2.IMREAD_COLOR)
         img = cv2.cvtColor(ori_img, cv2.COLOR_BGR2RGB)
         img_size = img.shape[:2]
         # mask
@@ -156,8 +111,7 @@ class RefDataset(Dataset):
             borderValue=[0.48145466 * 255, 0.4578275 * 255, 0.40821073 * 255])
         if self.mode == 'train':
             # mask transform
-            mask = cv2.imdecode(np.frombuffer(ref['mask'], np.uint8),
-                                cv2.IMREAD_GRAYSCALE)
+            mask = cv2.imdecode(np.frombuffer(ref['mask'], np.uint8), cv2.IMREAD_GRAYSCALE)
             mask = cv2.warpAffine(mask,
                                   mat,
                                   self.input_size,
@@ -166,13 +120,13 @@ class RefDataset(Dataset):
             mask = mask / 255.
             # sentence -> vector
             sent = sents[idx]
-            word_vec = tokenize(sent, self.word_length, True).squeeze(0)
+            word_vec = self.tokenizer.tokenize(sent, self.word_length, True).squeeze(0)
             img, mask = self.convert(img, mask)
             return img, word_vec, mask
         elif self.mode == 'val':
             # sentence -> vector
             sent = sents[0]
-            word_vec = tokenize(sent, self.word_length, True).squeeze(0)
+            word_vec = self.tokenizer.tokenize(sent, self.word_length, True).squeeze(0)
             img = self.convert(img)[0]
             params = {
                 'mask_dir': mask_dir,

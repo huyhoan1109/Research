@@ -278,8 +278,7 @@ class FPN(nn.Module):
         v3, v4, v5 = imgs
         # fusion 1: b, 1024, 13, 13
         # text projection: b, 1024 -> b, 1024
-        state = self.txt_proj(state).unsqueeze(-1).unsqueeze(
-            -1)  # b, 1024, 1, 1
+        state = self.txt_proj(state).unsqueeze(-1).unsqueeze(-1)  # b, 1024, 1, 1
         f5 = self.f1_v_proj(v5)
         f5 = self.norm_layer(f5 * state)
         # fusion 2: b, 512, 26, 26

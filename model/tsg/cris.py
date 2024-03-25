@@ -54,8 +54,7 @@ class CRIS(nn.Module):
         # word: b, length, 1024
         # state: b, 1024
         vis = self.backbone.encode_image(img)
-        word, state = self.backbone.encode_text(word)
-
+        word, state = self.backbone.encode_text(word) # text embeddings, text features
         # b, 512 *3, 26, 26 (fusion)
         fq = self.neck(vis, state)
         b, _, h, w = fq.size()

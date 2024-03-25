@@ -8,3 +8,4 @@ pycocotools
 matplotlib
 tqdm
 pickle5
+albumentations
