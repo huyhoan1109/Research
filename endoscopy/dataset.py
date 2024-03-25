@@ -37,6 +37,7 @@ class EndosDataset(Dataset):
         self.data = dict()
         for id in ids:
             id = id.strip('\n')
+            print(metadata[id])
             self.data[id] = metadata[id]
 
     def __len__(self):
@@ -60,7 +61,7 @@ class EndosDataset(Dataset):
 
         return {
             'image': transformed['image'],
-            'mask': transformed['mask'],
+            'mask': transformed['mask'] / 255.0, # change mask from [0, 255] => [0, 1]
             'prompt': prompt,
             'word': self.tokenizer.tokenize(prompt, self.word_length, True).squeeze(0),
             'img_name': sample['image'],

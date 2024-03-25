@@ -1,8 +1,8 @@
-import torch
-import cv2
 import numpy as np
 from PIL import Image
 import albumentations as A
+from albumentations.pytorch import ToTensorV2
+
 
 try:
     from torchvision.transforms import InterpolationMode
@@ -12,7 +12,11 @@ except ImportError:
 
 def init_transform(size):
     return A.Compose([
-        A.RandomCrop(width=size, height=size),
-        A.HorizontalFlip(p=0.5),
-        A.RandomBrightnessContrast(p=0.2)
-    ])
+        A.Resize(size, size), 
+        A.Normalize(
+            mean=(0.485, 0.456, 0.406), 
+            std=(0.229, 0.224, 0.225)
+        ), 
+        ToTensorV2()
+    ]
+)
