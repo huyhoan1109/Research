@@ -9,9 +9,7 @@ import torch.distributed as dist
 import torch.nn.functional as F
 import wandb
 from loguru import logger
-from utils.dataset import tokenize
-from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather,
-                        trainMetricGPU)
+from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather, trainMetricGPU)
 
 from endoscopy.transform import *
 
@@ -87,7 +85,6 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
                     step=epoch * len(train_loader) + (i + 1)
                 )
 
-
 @torch.no_grad()
 def validate(val_loader, model, epoch, args):
     iou_list = []
@@ -132,8 +129,7 @@ def validate(val_loader, model, epoch, args):
         value = prec_list[i].item()
         prec[key] = value
         temp += "{}: {:.2f}  ".format(key, 100. * value)
-    head = 'Evaluation: Epoch=[{}/{}]  IoU={:.2f}'.format(
-        epoch, args.epochs, 100. * iou.item())
+    head = 'Evaluation: Epoch=[{}/{}]  IoU={:.2f}'.format(epoch, args.epochs, 100. * iou.item())
     logger.info(head + temp)
     return iou.item(), prec
 

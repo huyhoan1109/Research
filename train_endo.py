@@ -22,7 +22,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from endoscopy.dataset import EndosDataset
 import utils.config as config
 import wandb
-from engine.engine import train, validate
+from engine.engine_endo import train, validate
 from model import build_segmenter
 from utils.misc import (init_random_seed, set_random_seed, setup_logger,
                         worker_init_fn, AverageMeter, ProgressMeter)
@@ -32,8 +32,7 @@ cv2.setNumThreads(0)
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(
-        description='Pytorch Referring Expression Segmentation')
+    parser = argparse.ArgumentParser(description='Pytorch CLIP Endoscopy Segmentation')
     parser.add_argument('--config',
                         default='path to xxx.yaml',
                         type=str,
@@ -122,8 +121,8 @@ def main_worker(gpu, args):
     # build dataset
     args.batch_size = int(args.batch_size / args.ngpus_per_node)
     args.batch_size_val = int(args.batch_size_val / args.ngpus_per_node)
-    args.workers = int(
-        (args.workers + args.ngpus_per_node - 1) / args.ngpus_per_node)
+    args.workers = int((args.workers + args.ngpus_per_node - 1) / args.ngpus_per_node)
+    
     train_data = EndosDataset(
         input_size=args.input_size,
         word_length=args.word_len,

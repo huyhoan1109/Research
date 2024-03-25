@@ -37,7 +37,6 @@ class EndosDataset(Dataset):
         self.data = dict()
         for id in ids:
             id = id.strip('\n')
-            print(metadata[id])
             self.data[id] = metadata[id]
 
     def __len__(self):
