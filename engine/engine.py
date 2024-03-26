@@ -9,7 +9,7 @@ import torch.distributed as dist
 import torch.nn.functional as F
 import wandb
 from loguru import logger
-from utils.dataset import tokenize
+from utils.dataset import Tokenizer
 from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather, trainMetricGPU)
 
 
@@ -146,6 +146,7 @@ def validate(val_loader, model, epoch, args):
 
 @torch.no_grad()
 def inference(test_loader, model, args):
+    tokenizer = Tokenizer()
     iou_list = []
     tbar = tqdm(test_loader, desc='Inference:', ncols=100)
     model.eval()
@@ -166,7 +167,7 @@ def inference(test_loader, model, args):
         # multiple sentences
         for sent in param['sents']:
             mask = mask / 255.
-            text = tokenize(sent, args.word_len, True)
+            text = tokenizer.tokenize(sent, args.word_len, True)
             text = text.cuda(non_blocking=True)
             # inference
             pred = model(img, text)
