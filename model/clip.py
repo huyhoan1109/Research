@@ -220,7 +220,7 @@ class ModifiedResNet(nn.Module):
         x4 = self.layer4(x3)
         x4 = self.attnpool(x4)  # fattn
 
-        return (x2, x3, x4)
+        return (x, x2, x3, x4)
 
 
 class LayerNorm(nn.LayerNorm):

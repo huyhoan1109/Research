@@ -243,7 +243,7 @@ class FPN(nn.Module):
 
     def forward(self, imgs, state):
         # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
-        v3, v4, v5 = imgs
+        v, v3, v4, v5 = imgs
         # fusion 1: b, 1024, 13, 13
         # text projection: b, 1024 -> b, 1024
         state = self.txt_proj(state).unsqueeze(-1).unsqueeze(
@@ -308,7 +308,7 @@ class newFPN(nn.Module):
 
     def forward(self, imgs, state):
         # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
-        v3, v4, v5 = imgs
+        v, v3, v4, v5 = imgs
         
         # fusion 1: b, 1024, 13, 13
         # text projection 1: b, 1024 -> b, 1024
