@@ -217,7 +217,7 @@ class TransformerDecoderLayer(nn.Module):
             value=vis2,
         ) 
         # (26x26, B, 512)
-        vis2 = self.vis_norm(vis2)
+        vis2 = self.vis_norm(vis2 + self.scale_gate(vis2, vis_feats))
         vis = vis + self.dropout1(vis2)
 
         # Cross-Attention
@@ -229,7 +229,6 @@ class TransformerDecoderLayer(nn.Module):
             value=txt,
             key_padding_mask=pad_mask,
         )
-        vis2 = self.scale_gate(vis2, vis_feats)
         vis2 = self.vis_txt_norm(vis2)
         # [676, B, 512]
         vis = vis + self.dropout2(vis2)
