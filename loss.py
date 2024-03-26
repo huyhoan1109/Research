@@ -9,12 +9,11 @@ class CELoss(nn.Module):
         self.cfg = cfg
         self.reduction = reduction
     def forward(self, input, target):
-        input = F.sigmoid(input)
         # flatten
         input = input.view(-1).float()
         target = target.view(-1).float()
         # loss
-        loss = F.binary_cross_entropy(input, target, reduction=self.reduction)
+        loss = F.binary_cross_entropy_with_logits(input, target, reduction=self.reduction)
         return loss
     
 class FocalLoss(nn.Module):
@@ -25,12 +24,11 @@ class FocalLoss(nn.Module):
         self.gamma = cfg.gamma
         self.reduction = reduction
     def forward(self, input, target):
-        input = F.sigmoid(input)
         # flatten
         input = input.view(-1).float()
         target = target.view(-1).float()
         # loss
-        bce_loss = F.binary_cross_entropy(input, target, reduction='mean')
+        bce_loss = F.binary_cross_entropy_with_logits(input, target, reduction='mean')
         loss = self.alpha * (1 - torch.exp(-bce_loss)) ** self.gamma * bce_loss
         return loss
 
