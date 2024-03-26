@@ -234,7 +234,6 @@ class TransformerDecoderLayer(nn.Module):
         vis = vis + self.dropout2(vis2)
         # FFN
         vis2 = self.norm3(vis)
-        vis2 = self.scale_gate(vis2, vis_feats)
         vis = vis + self.dropout3(vis2)
         return vis
 
