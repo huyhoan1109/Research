@@ -428,7 +428,6 @@ class ScaleGate(nn.Module):
             nn.Linear(d_model, d_model),
             nn.GELU(),
             nn.Linear(d_model, num_stages * d_model),
-            nn.GELU(),
         )
     def forward(self, x, vis_feats):
         shape = vis_feats.size()

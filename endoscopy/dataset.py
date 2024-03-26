@@ -47,7 +47,7 @@ class EndosDataset(Dataset):
     def __getitem__(self, idx):
         sample = self.data[idx]
         
-        ori_img = cv2.imread(os.path.join(self.image_path, sample['image']))
+        ori_img = cv2.imread(os.path.join(self.image_path, sample['image']), cv2.IMREAD_COLOR)
         img = cv2.cvtColor(ori_img, cv2.COLOR_BGR2RGB)
         
         mask = cv2.imread(os.path.join(self.mask_path, sample['mask']), cv2.IMREAD_GRAYSCALE)
