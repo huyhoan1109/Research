@@ -259,12 +259,25 @@ class FPN(nn.Module):
                                  out_channels[1], 1, 0)
         # fusion 3: v3 & fm_mid -> f_3: b, 512, 52, 52
         self.f3_v_proj = conv_layer(in_channels[0], out_channels[0], 3, 1)
-        self.f3_cat = conv_layer(out_channels[0] + out_channels[1], out_channels[1], 1, 0)
+        self.f3_cat = conv_layer(out_channels[0] + out_channels[1],
+                                 out_channels[1], 1, 0)
         
-        # fusion 4: f_3 & f_4 & f_5 -> fq: b, 256, 26, 26
-        self.f4_proj = nn.Sequential(
-            conv_layer(3 * out_channels[1], 3 * out_channels[1], 1, 0),
-            CoordConv(3 * out_channels[1], 3 * out_channels[1], 1, 0),
+        # aggregation
+        # self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
+        self.coordconv1 = nn.Sequential(
+            conv_layer(out_channels[2], out_channels[1], 3, 1),
+            CoordConv(out_channels[1], out_channels[1], 3, 1),
+            conv_layer(out_channels[1], out_channels[1], 3, 1)
+        )
+        self.coordconv2 = nn.Sequential(
+            conv_layer(out_channels[1], out_channels[1], 3, 1),
+            CoordConv(out_channels[1], out_channels[1], 3, 1),
+            conv_layer(out_channels[1], out_channels[1], 3, 1)
+        )
+        self.coordconv3 = nn.Sequential(
+            conv_layer(out_channels[1], out_channels[1], 3, 1),
+            CoordConv(out_channels[1], out_channels[1], 3, 1),
+            conv_layer(out_channels[1], out_channels[1], 3, 1)
         )
 
     def forward(self, imgs, state):
@@ -283,10 +296,18 @@ class FPN(nn.Module):
         f3 = self.f3_v_proj(v3)
         f3 = F.avg_pool2d(f3, 2, 2)
         f3 = self.f3_cat(torch.cat([f3, f4], dim=1))
+        
         # fusion 4: b, 512, 13, 13 / b, 512, 26, 26 / b, 512, 26, 26
-        fq5 = F.interpolate(f5_, scale_factor=2, mode='bilinear')
-        fq = torch.cat([f3, f4, fq5], dim=1)
-        fq = self.f4_proj(f5)
+        fq5 = self.coordconv1(f5)
+        fq4 = self.coordconv2(f4)
+        fq3 = self.coordconv3(f3)
+        
+        # query
+        fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
+        fq = torch.cat([fq3, fq4, fq5], dim=1)
+        
+        fq = torch.cat([fq3, fq4, fq5], dim=1)
+        # b, 512, 26, 26
         return fq
 
 class newFPN(nn.Module):
