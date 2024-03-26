@@ -131,7 +131,6 @@ class TransformerDecoder(nn.Module):
         vis = torch.zeros_like(vis_chunk[0])
         for v in vis_chunk:
             vis += v
-        vis = self.nr(vis)
         B, C, H, W = vis.size()
         _, L, D = txt.size()
         # position encoding
@@ -142,7 +141,7 @@ class TransformerDecoder(nn.Module):
         vis_feats.reshape(B, 3 * C, -1).permute(2, 0, 1) # B, 512 * 3, H, W => HxW, B, 512 * 3
         txt = txt.permute(1, 0, 2)  # B, L, C => L, B, C  
         # forward
-        output = vis
+        output = self.nr(vis)
         intermediate = []
         for decoder in self.decoder_layers:
             output = decoder(output, txt, vis_pos, txt_pos, pad_mask, vis_feats)
