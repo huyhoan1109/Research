@@ -441,12 +441,13 @@ class ScaleGate(nn.Module):
         )
 
     def forward(self, x, r_feats):
-        shape = r_feats.size()
+        _, B, C = x.size() # HxW, B, C
+        r_shape = r_feats.size()
         x = self.layers(x)
-        x = x.permute(1, 2, 0).reshape(shape)
+        x = x.permute(1, 2, 0).reshape(r_shape)
         product = F.softmax(x, dim=1) * r_feats
         output = self.coordconv(self.aggr(product))
-        return output.permute(2, 0, 1)
+        return output.reshape(B, C, -1).permute(2, 0, 1)
 
 
 
