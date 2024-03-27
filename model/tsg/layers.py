@@ -266,7 +266,7 @@ class FPN(nn.Module):
         self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
         self.coordconv = nn.Sequential(
             CoordConv(out_channels[1], out_channels[1], 3, 1),
-            conv_layer(in_channels[1], out_channels[1], 3, 1)
+            conv_layer(out_channels[1], out_channels[1], 3, 1)
         )
 
     def forward(self, imgs, state):
