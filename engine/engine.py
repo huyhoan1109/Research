@@ -9,7 +9,7 @@ import torch.distributed as dist
 import torch.nn.functional as F
 import wandb
 from loguru import logger
-from utils.dataset import Tokenizer
+from utils.simple_tokenizer import Tokenizer
 from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather, trainMetricGPU)
 
 

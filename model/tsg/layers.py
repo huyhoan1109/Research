@@ -122,29 +122,27 @@ class TransformerDecoder(nn.Module):
 
     def forward(self, vis_feats, txt, pad_mask):
         '''
-            vis_feats = vis1, vis2, vis3
+            vis_feats = fusion, (vis1, vis2, vis3)
             vis: b, 512, h, w
             txt: b, L, 512
             pad_mask: b, L
         '''
-        vis_chunk = torch.chunk(vis_feats, self.num_stages, dim=1)
-        vis = torch.zeros_like(vis_chunk[0])
-        for v in vis_chunk:
-            vis += v
-        B, C, H, W = vis.size()
+        f_vis = vis_feats[0]
+        r_feats = vis_feats[1]
+        B, C, H, W = f_vis.size()
         _, L, D = txt.size()
         # position encoding
         vis_pos = self.pos2d(C, H, W)
         txt_pos = self.pos1d(D, L)
         # reshape & permute
-        vis = vis.reshape(B, C, -1).permute(2, 0, 1) # B, 512, HxW => HxW, B, 512
-        vis_feats.reshape(B, 3 * C, -1).permute(2, 0, 1) # B, 512 * 3, H, W => HxW, B, 512 * 3
+        f_vis = f_vis.reshape(B, C, -1).permute(2, 0, 1) # B, 512, HxW => HxW, B, 512
+        r_feats.reshape(B, 3 * C, -1).permute(2, 0, 1) # B, 512 * 3, H, W => HxW, B, 512 * 3
         txt = txt.permute(1, 0, 2)  # B, L, C => L, B, C  
         # forward
-        output = self.nr(vis)
+        output = f_vis
         intermediate = []
         for decoder in self.decoder_layers:
-            output = decoder(output, txt, vis_pos, txt_pos, pad_mask, vis_feats)
+            output = decoder(output, txt, vis_pos, txt_pos, pad_mask, r_feats)
             if self.return_intermediate:
                 # HxW, b, 512 -> b, 512, HxW
                 intermediate.append(self.norm(output).permute(1, 2, 0))
@@ -200,14 +198,14 @@ class TransformerDecoderLayer(nn.Module):
     def with_pos_embed(self, tensor, pos):
         return tensor if pos is None else tensor + pos.to(tensor.device)
 
-    def forward(self, vis, txt, vis_pos, txt_pos, pad_mask, vis_feats):
+    def forward(self, vis, txt, vis_pos, txt_pos, pad_mask, r_feats):
         '''
             vis: 26*26, b, 512
             txt: L, b, 512
             vis_pos: 26*26, 1, 512
             txt_pos: L, 1, 512
             pad_mask: b, L,
-            vis_feats: 26*26, b, 512 * 3
+            r_feats: 26*26, b, 512 * 3
         '''
         # Self-Attention
         vis2 = self.norm1(vis)
@@ -218,7 +216,6 @@ class TransformerDecoderLayer(nn.Module):
             value=vis2,
         ) 
         # (26x26, B, 512)
-        # vis2 = self.vis_norm(vis2 + self.scale_gate(vis2, vis_feats))
         vis2 = self.vis_norm(vis2)
         vis = vis + self.dropout1(vis2)
 
@@ -231,7 +228,7 @@ class TransformerDecoderLayer(nn.Module):
             value=txt,
             key_padding_mask=pad_mask,
         )
-        vis2 = self.vis_txt_norm(vis2)
+        vis2 = self.vis_txt_norm(vis2 + self.scale_gate(r_feats))
         # [676, B, 512]
         vis = vis + self.dropout2(vis2)
         # FFN
@@ -262,22 +259,15 @@ class FPN(nn.Module):
         self.f3_cat = conv_layer(out_channels[0] + out_channels[1],
                                  out_channels[1], 1, 0)
         
+        self.f4_proj5 = conv_layer(in_channels[2], out_channels[1], 3, 1)
+        self.f4_proj4 = conv_layer(in_channels[1], out_channels[1], 3, 1)
+        self.f4_proj3 = conv_layer(in_channels[1], out_channels[1], 3, 1)
+        
         # aggregation
-        # self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
-        self.coordconv1 = nn.Sequential(
-            conv_layer(out_channels[2], out_channels[1], 3, 1),
+        self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
+        self.coordconv = nn.Sequential(
             CoordConv(out_channels[1], out_channels[1], 3, 1),
-            conv_layer(out_channels[1], out_channels[1], 3, 1)
-        )
-        self.coordconv2 = nn.Sequential(
-            conv_layer(out_channels[1], out_channels[1], 3, 1),
-            CoordConv(out_channels[1], out_channels[1], 3, 1),
-            conv_layer(out_channels[1], out_channels[1], 3, 1)
-        )
-        self.coordconv3 = nn.Sequential(
-            conv_layer(out_channels[1], out_channels[1], 3, 1),
-            CoordConv(out_channels[1], out_channels[1], 3, 1),
-            conv_layer(out_channels[1], out_channels[1], 3, 1)
+            conv_layer(in_channels[1], out_channels[1], 3, 1)
         )
 
     def forward(self, imgs, state):
@@ -298,17 +288,17 @@ class FPN(nn.Module):
         f3 = self.f3_cat(torch.cat([f3, f4], dim=1))
         
         # fusion 4: b, 512, 13, 13 / b, 512, 26, 26 / b, 512, 26, 26
-        fq5 = self.coordconv1(f5)
-        fq4 = self.coordconv2(f4)
-        fq3 = self.coordconv3(f3)
+        fq5 = self.f4_proj5(f5)
+        fq4 = self.f4_proj4(f4)
+        fq3 = self.f4_proj3(f3)
         
         # query
         fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
         fq = torch.cat([fq3, fq4, fq5], dim=1)
-        
-        fq = torch.cat([fq3, fq4, fq5], dim=1)
+        fusion = self.aggr(fq)
+        fusion = self.coordconv(fusion)
         # b, 512, 26, 26
-        return fq
+        return fusion, fq
 
 class newFPN(nn.Module):
     def __init__(self,
@@ -445,17 +435,19 @@ class ScaleGate(nn.Module):
             nn.GELU(),
             nn.Linear(d_model, num_stages * d_model),
         )
-    def forward(self, x, vis_feats):
-        shape = vis_feats.size()
+        self.aggr = conv_layer(num_stages * d_model, d_model, 1, 0)
+        self.coordconv = nn.Sequential(
+            CoordConv(d_model, d_model, 3, 1),
+            conv_layer(d_model, d_model, 3, 1)
+        )
+
+    def forward(self, x, r_feats):
+        shape = r_feats.size()
         x = self.layers(x)
         x = x.permute(1, 2, 0).reshape(shape)
-        product = F.softmax(x, dim=1) * vis_feats
-        vis_chunk = torch.chunk(product, self.num_stages, dim=1)
-        output = torch.zeros_like(vis_chunk[0])
-        for v in vis_chunk:
-            output += v
-        B, C, H, W = output.size()
-        return output.reshape(B, C, -1).permute(2, 0, 1)
+        product = F.softmax(x, dim=1) * r_feats
+        output = self.coordconv(self.aggr(product))
+        return output.permute(2, 0, 1)
 
 
 
