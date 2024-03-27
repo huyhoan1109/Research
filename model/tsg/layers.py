@@ -252,16 +252,15 @@ class FPN(nn.Module):
         )
         # fusion 2: v4 & fm -> f_4: b, 512, 26, 26
         self.f2_v_proj = conv_layer(in_channels[1], out_channels[1], 3, 1)
-        self.f2_cat = conv_layer(out_channels[2] + out_channels[1],
-                                 out_channels[1], 1, 0)
+        self.f2_cat = conv_layer(out_channels[2] + out_channels[1], out_channels[1], 1, 0)
+        
         # fusion 3: v3 & fm_mid -> f_3: b, 512, 52, 52
         self.f3_v_proj = conv_layer(in_channels[0], out_channels[0], 3, 1)
-        self.f3_cat = conv_layer(out_channels[0] + out_channels[1],
-                                 out_channels[1], 1, 0)
+        self.f3_cat = conv_layer(out_channels[0] + out_channels[1], out_channels[1], 1, 0)
         
-        self.f4_proj5 = conv_layer(in_channels[2], out_channels[1], 3, 1)
-        self.f4_proj4 = conv_layer(in_channels[1], out_channels[1], 3, 1)
-        self.f4_proj3 = conv_layer(in_channels[1], out_channels[1], 3, 1)
+        self.f4_proj5 = conv_layer(out_channels[2], out_channels[1], 3, 1)
+        self.f4_proj4 = conv_layer(out_channels[1], out_channels[1], 3, 1)
+        self.f4_proj3 = conv_layer(out_channels[1], out_channels[1], 3, 1)
         
         # aggregation
         self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
@@ -282,6 +281,7 @@ class FPN(nn.Module):
         f4 = self.f2_v_proj(v4)
         f5_ = F.interpolate(f5, scale_factor=2, mode='bilinear')
         f4 = self.f2_cat(torch.cat([f4, f5_], dim=1))
+        
         # fusion 3: b, 256, 26, 26
         f3 = self.f3_v_proj(v3)
         f3 = F.avg_pool2d(f3, 2, 2)
