@@ -57,7 +57,7 @@ class CRIS(nn.Module):
         word, state = self.backbone.encode_text(word) # text embeddings, text features
         # b, 512 *3, 26, 26 (fusion)
         fq = self.neck(vis, state)
-        b, _, h, w = fq.size()
+        b, _, h, w = fq[0].size()
         out = self.decoder(fq, word, pad_mask)
         out = out.reshape(b, h, w, -1).permute(0, 3, 1, 2)
         # b, 1, 104, 104
