@@ -136,7 +136,6 @@ class TransformerDecoder(nn.Module):
         txt_pos = self.pos1d(D, L)
         # reshape & permute
         f_vis = f_vis.reshape(B, C, -1).permute(2, 0, 1) # B, 512, HxW => HxW, B, 512
-        r_feats.reshape(B, 3 * C, -1).permute(2, 0, 1) # B, 512 * 3, H, W => HxW, B, 512 * 3
         txt = txt.permute(1, 0, 2)  # B, L, C => L, B, C  
         # forward
         output = f_vis
@@ -228,7 +227,7 @@ class TransformerDecoderLayer(nn.Module):
             value=txt,
             key_padding_mask=pad_mask,
         )
-        vis2 = self.vis_txt_norm(vis2 + self.scale_gate(r_feats))
+        vis2 = self.vis_txt_norm(vis2 + self.scale_gate(vis2, r_feats))
         # [676, B, 512]
         vis = vis + self.dropout2(vis2)
         # FFN
