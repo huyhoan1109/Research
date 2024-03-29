@@ -5,7 +5,7 @@ from PIL import Image
 from loguru import logger
 import sys
 import inspect
-
+import wandb
 import torch
 from torch import nn
 import torch.distributed as dist
@@ -284,3 +284,58 @@ def setup_logger(save_dir, distributed_rank=0, filename="log.txt", mode="a"):
 
     # redirect stdout/stderr to loguru
     redirect_sys_output("INFO")
+
+class WandbLogger():
+    def __init__(self, cfg):
+        self.cfg = cfg  
+
+    def init_logger(self):
+        wandb.init(
+            job_type="training",
+            mode="online",
+            config=self.cfg,
+            project="CRIS",
+            name=self.cfg.exp_name,
+            tags=[self.cfg.dataset, self.cfg.clip_pretrain],
+            id=self.cfg.run_id,
+            resume=self.cfg.continue_training 
+        )
+        self.init_metrics()
+
+    def init_metrics(self):
+        self.define_step('training/step')
+        self.define_step('eval/step')
+        self.define_metrics(
+            [
+                'time/batch',
+                'time/data',
+                "training/lr",
+                "training/loss",
+                "training/iou",
+                "training/prec@50"
+            ],
+            'training/step',
+        )
+        self.define_metrics(
+            [
+                "eval/iou",
+                "eval/prec@50",
+                "eval/prec@60",
+                "eval/prec@70",
+                "eval/prec@80",
+                "eval/prec@90"
+            ],
+            'eval/step',
+        )
+    
+    def define_step(self, step):
+        wandb.define_metric(step)
+
+    def define_metrics(self, metrics, step):
+        for metric in metrics:
+            wandb.define_metric(f"{metric}", step_metric=step)
+
+    def logging(self, log, commit=True):
+        wandb.log(log, commit=commit)
+    def finish(self):
+        wandb.finish()
