@@ -5,11 +5,11 @@ from PIL import Image
 from loguru import logger
 import sys
 import inspect
-
+import wandb
 import torch
 from torch import nn
 import torch.distributed as dist
-
+from . import metrics
 
 def init_random_seed(seed=None, device='cuda', rank=0, world_size=1):
     """Initialize random seed."""
@@ -119,14 +119,8 @@ def trainMetricGPU(output, target, threshold=0.35, pr_iou=0.5):
     output = torch.sigmoid(output)
     output[output < threshold] = 0.
     output[output >= threshold] = 1.
-    # inter & union
-    inter = (output.bool() & target.bool()).sum(dim=1)  # b
-    union = (output.bool() | target.bool()).sum(dim=1)  # b
-    ious = inter / (union + 1e-6)  # 0 ~ 1
-    # iou & pr@5
-    iou = ious.mean()
-    prec = (ious > pr_iou).float().mean()
-    return 100. * iou, 100. * prec
+    result = metrics.calculate_metrics(output, target, dim=1, ths=pr_iou)
+    return 100. * result['iou'], 100. * result['precision']
 
 
 def ValMetricGPU(output, target, threshold=0.35):
@@ -153,7 +147,6 @@ def intersectionAndUnionGPU(output, target, K, threshold=0.5):
     output = torch.sigmoid(output)
     output[output < threshold] = 0.
     output[output >= threshold] = 1.
-
     intersection = output[output == target]
     area_intersection = torch.histc(intersection.float(),
                                     bins=K,
@@ -291,3 +284,62 @@ def setup_logger(save_dir, distributed_rank=0, filename="log.txt", mode="a"):
 
     # redirect stdout/stderr to loguru
     redirect_sys_output("INFO")
+
+class WandbLogger():
+    def __init__(self, cfg):
+        self.cfg = cfg  
+        
+    def init_logger(
+            self,
+            project,
+            mode="online"
+        ):
+        wandb.init(
+            project=project,
+            mode=mode,
+            config=self.cfg,
+            name=self.cfg.exp_name,
+            tags=[self.cfg.dataset, self.cfg.clip_pretrain],
+            id=self.cfg.run_id,
+            resume=self.cfg.continue_training 
+        )
+        self.init_metrics()
+
+    def init_metrics(self):
+        self.define_step('training/step')
+        self.define_step('eval/step')
+        self.define_metrics(
+            [
+                'time/batch',
+                'time/data',
+                "training/lr",
+                "training/loss",
+                "training/iou",
+                "training/prec@50"
+            ],
+            'training/step'
+        )
+        self.define_metrics(
+            [
+                "eval/iou",
+                "eval/prec@50",
+                "eval/prec@60",
+                "eval/prec@70",
+                "eval/prec@80",
+                "eval/prec@90"
+            ],
+            'eval/step'
+        )
+    
+    def define_step(self, step):
+        wandb.define_metric(step)
+
+    def define_metrics(self, metrics, step):
+        for metric in metrics:
+            wandb.define_metric(f"{metric}", step_metric=step)
+
+    def logging(self, log, commit=True):
+        wandb.log(log, commit=commit)
+    
+    def finish(self):
+        wandb.finish()

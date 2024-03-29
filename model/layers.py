@@ -167,10 +167,12 @@ class TransformerDecoderLayer(nn.Module):
                                                     kdim=d_model,
                                                     vdim=d_model)
         # FFN
-        self.ffn = nn.Sequential(nn.Linear(d_model, dim_feedforward),
-                                 nn.ReLU(True), nn.Dropout(dropout),
-                                 nn.LayerNorm(dim_feedforward),
-                                 nn.Linear(dim_feedforward, d_model))
+        self.ffn = nn.Sequential(
+            nn.Linear(d_model, dim_feedforward),
+            nn.ReLU(True), nn.Dropout(dropout),
+            nn.LayerNorm(dim_feedforward),
+            nn.Linear(dim_feedforward, d_model)
+        )
         # LayerNorm & Dropout
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
@@ -196,6 +198,7 @@ class TransformerDecoderLayer(nn.Module):
         vis2 = self.self_attn(q, k, value=vis2)[0]
         vis2 = self.self_attn_norm(vis2)
         vis = vis + self.dropout1(vis2)
+        
         # Cross-Attention
         vis2 = self.norm2(vis)
         vis2 = self.multihead_attn(query=self.with_pos_embed(vis2, vis_pos),
@@ -204,6 +207,7 @@ class TransformerDecoderLayer(nn.Module):
                                    key_padding_mask=pad_mask)[0]
         vis2 = self.cross_attn_norm(vis2)
         vis = vis + self.dropout2(vis2)
+        
         # FFN
         vis2 = self.norm3(vis)
         vis2 = self.ffn(vis2)
@@ -227,8 +231,7 @@ class FPN(nn.Module):
                                  out_channels[1], 1, 0)
         # fusion 3: v3 & fm_mid -> f_3: b, 512, 52, 52
         self.f3_v_proj = conv_layer(in_channels[0], out_channels[0], 3, 1)
-        self.f3_cat = conv_layer(out_channels[0] + out_channels[1],
-                                 out_channels[1], 1, 0)
+        self.f3_cat = conv_layer(out_channels[0] + out_channels[1], out_channels[1], 1, 0)
         # fusion 4: f_3 & f_4 & f_5 -> fq: b, 256, 26, 26
         self.f4_proj5 = conv_layer(out_channels[2], out_channels[1], 3, 1)
         self.f4_proj4 = conv_layer(out_channels[1], out_channels[1], 3, 1)
@@ -237,15 +240,15 @@ class FPN(nn.Module):
         self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
         self.coordconv = nn.Sequential(
             CoordConv(out_channels[1], out_channels[1], 3, 1),
-            conv_layer(out_channels[1], out_channels[1], 3, 1))
+            conv_layer(out_channels[1], out_channels[1], 3, 1)
+        )
 
     def forward(self, imgs, state):
         # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
-        v3, v4, v5 = imgs
+        v, v3, v4, v5 = imgs
         # fusion 1: b, 1024, 13, 13
         # text projection: b, 1024 -> b, 1024
-        state = self.txt_proj(state).unsqueeze(-1).unsqueeze(
-            -1)  # b, 1024, 1, 1
+        state = self.txt_proj(state).unsqueeze(-1).unsqueeze(-1)  # b, 1024, 1, 1
         f5 = self.f1_v_proj(v5)
         f5 = self.norm_layer(f5 * state)
         # fusion 2: b, 512, 26, 26
@@ -302,11 +305,12 @@ class newFPN(nn.Module):
         self.aggr = conv_layer(3 * out_channels[1], out_channels[1], 1, 0)
         self.coordconv = nn.Sequential(
             CoordConv(out_channels[1], out_channels[1], 3, 1),
-            conv_layer(out_channels[1], out_channels[1], 3, 1))
+            conv_layer(out_channels[1], out_channels[1], 3, 1)
+        )
 
     def forward(self, imgs, state):
         # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
-        v3, v4, v5 = imgs
+        v, v3, v4, v5 = imgs
         
         # fusion 1: b, 1024, 13, 13
         # text projection 1: b, 1024 -> b, 1024

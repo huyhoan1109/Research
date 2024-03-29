@@ -9,12 +9,11 @@ import torch.distributed as dist
 import torch.nn.functional as F
 import wandb
 from loguru import logger
-from utils.dataset import tokenize
-from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather,
-                        trainMetricGPU)
+from utils.simple_tokenizer import Tokenizer
+from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather, trainMetricGPU)
 
 
-def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
+def train(train_loader, wlogger, model, optimizer, scheduler, scaler, epoch, args):
     batch_time = AverageMeter('Batch', ':2.2f')
     data_time = AverageMeter('Data', ':2.2f')
     lr = AverageMeter('Lr', ':1.6f')
@@ -24,8 +23,8 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
     progress = ProgressMeter(
         len(train_loader),
         [batch_time, data_time, lr, loss_meter, iou_meter, pr_meter],
-        prefix="Training: Epoch=[{}/{}] ".format(epoch, args.epochs))
-
+        prefix="Training: Epoch=[{}/{}] ".format(epoch, args.epochs)
+    )
     model.train()
     time.sleep(2)
     end = time.time()
@@ -61,21 +60,23 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
         dist.all_reduce(loss.detach())
         dist.all_reduce(iou)
         dist.all_reduce(pr5)
+        
         loss = loss / dist.get_world_size()
         iou = iou / dist.get_world_size()
         pr5 = pr5 / dist.get_world_size()
-
+        
         loss_meter.update(loss.item(), image.size(0))
         iou_meter.update(iou.item(), image.size(0))
         pr_meter.update(pr5.item(), image.size(0))
         lr.update(scheduler.get_last_lr()[-1])
         batch_time.update(time.time() - end)
+        
         end = time.time()
 
         if (i + 1) % args.print_freq == 0:
             progress.display(i + 1)
             if dist.get_rank() in [-1, 0]:
-                wandb.log(
+                wlogger.logging(
                     {
                         "time/batch": batch_time.val,
                         "time/data": data_time.val,
@@ -83,8 +84,9 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
                         "training/loss": loss_meter.val,
                         "training/iou": iou_meter.val,
                         "training/prec@50": pr_meter.val,
-                    },
-                    step=epoch * len(train_loader) + (i + 1))
+                        "training/step": epoch * len(train_loader) + (i + 1)
+                    }
+                )
 
 
 @torch.no_grad()
@@ -142,9 +144,9 @@ def validate(val_loader, model, epoch, args):
     logger.info(head + temp)
     return iou.item(), prec
 
-
 @torch.no_grad()
 def inference(test_loader, model, args):
+    tokenizer = Tokenizer()
     iou_list = []
     tbar = tqdm(test_loader, desc='Inference:', ncols=100)
     model.eval()
@@ -165,7 +167,7 @@ def inference(test_loader, model, args):
         # multiple sentences
         for sent in param['sents']:
             mask = mask / 255.
-            text = tokenize(sent, args.word_len, True)
+            text = tokenizer.tokenize(sent, args.word_len, True)
             text = text.cuda(non_blocking=True)
             # inference
             pred = model(img, text)

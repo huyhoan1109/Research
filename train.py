@@ -21,11 +21,11 @@ from torch.optim.lr_scheduler import MultiStepLR
 
 import utils.config as config
 import wandb
+from utils.misc import WandbLogger
 from utils.dataset import RefDataset
 from engine.engine import train, validate
 from model import build_segmenter
-from utils.misc import (init_random_seed, set_random_seed, setup_logger,
-                        worker_init_fn)
+from utils.misc import (init_random_seed, set_random_seed, setup_logger, worker_init_fn)
 
 warnings.filterwarnings("ignore")
 cv2.setNumThreads(0)
@@ -38,6 +38,10 @@ def get_parser():
                         default='path to xxx.yaml',
                         type=str,
                         help='config file')
+    parser.add_argument('--tsg',
+                        type=int,
+                        default=0,
+                        help='add transformer scale gate.')
     parser.add_argument('--opts',
                         default=None,
                         nargs=argparse.REMAINDER,
@@ -47,6 +51,7 @@ def get_parser():
     cfg = config.load_cfg_from_cfg_file(args.config)
     if args.opts is not None:
         cfg = config.merge_cfg_from_list(cfg, args.opts)
+    cfg.__setattr__('tsg', args.tsg)
     return cfg
 
 
@@ -84,15 +89,10 @@ def main_worker(gpu, args):
 
     # wandb
     if args.rank == 0:
-        wandb.init(
-            job_type="training",
-            mode="online",
-            config=args,
+        wlogger = WandbLogger(args)
+        wlogger.init_logger(
             project="CRIS",
-            name=args.exp_name,
-            tags=[args.dataset, args.clip_pretrain],
-            id=args.run_id,
-            resume=args.continue_training 
+            mode="online"
         )
     dist.barrier()
 
@@ -186,13 +186,24 @@ def main_worker(gpu, args):
         train_sampler.set_epoch(epoch_log)
 
         # train
-        train(train_loader, model, optimizer, scheduler, scaler, epoch_log, args)
+        train(train_loader, wlogger, model, optimizer, scheduler, scaler, epoch_log, args)
 
         # evaluation
         iou, prec_dict = validate(val_loader, model, epoch_log, args)
 
-        # save model
+        if dist.get_rank() in [-1, 0]:
+            # loggin
+            val_log = dict({
+                'eval/iou': iou,
+                'eval/step': epoch_log
+            })
+            for key in prec_dict.keys():
+                log_key = key.lower()
+                val_log[f'eval/{log_key}'] = prec_dict[key]
+            wlogger.logging(val_log)
+
         if dist.get_rank() == 0:
+            # save model
             lastname = os.path.join(args.output_dir, "last_model.pth")
             torch.save(
                 {
@@ -203,7 +214,9 @@ def main_worker(gpu, args):
                     'state_dict': model.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'scheduler': scheduler.state_dict()
-                }, lastname)
+                }, 
+                lastname
+            )
             if iou >= best_IoU:
                 best_IoU = iou
                 bestname = os.path.join(args.output_dir, "best_model.pth")
@@ -215,7 +228,7 @@ def main_worker(gpu, args):
 
     time.sleep(2)
     if dist.get_rank() == 0:
-        wandb.finish()
+        wlogger.finish()
 
     logger.info("* Best IoU={} * ".format(best_IoU))
     total_time = time.time() - start_time

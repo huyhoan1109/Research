@@ -1,4 +1,5 @@
 from .cris import CRIS
+from .tsg.cris import CRIS as tsgCRIS
 from loguru import logger
 
 # def build_segmenter(args):
@@ -30,7 +31,10 @@ from loguru import logger
 
 
 def build_segmenter(args):
-    model = CRIS(args)
+    if args.tsg == True:
+        model = tsgCRIS(args)
+    else:
+        model = CRIS(args)
     backbone = []
     head = []
     for k, v in model.named_parameters():

@@ -220,7 +220,7 @@ class ModifiedResNet(nn.Module):
         x4 = self.layer4(x3)
         x4 = self.attnpool(x4)  # fattn
 
-        return (x2, x3, x4)
+        return (x, x2, x3, x4)
 
 
 class LayerNorm(nn.LayerNorm):
@@ -263,7 +263,6 @@ class ResidualAttentionBlock(nn.Module):
         x = x + self.attention(self.ln_1(x))
         x = x + self.mlp(self.ln_2(x))
         return x
-
 
 class Transformer(nn.Module):
     def __init__(self,
@@ -372,7 +371,8 @@ class CLIP(nn.Module):
             width=transformer_width,
             layers=transformer_layers,
             heads=transformer_heads,
-            attn_mask=self.build_attention_mask(txt_length))
+            attn_mask=self.build_attention_mask(txt_length)
+        )
 
         self.vocab_size = vocab_size
         self.token_embedding = nn.Embedding(vocab_size, transformer_width)
@@ -437,8 +437,7 @@ class CLIP(nn.Module):
         return self.visual(image.type(self.dtype))
 
     def encode_text(self, text):
-        x = self.token_embedding(text).type(
-            self.dtype)  # [batch_size, n_ctx, d_model]
+        x = self.token_embedding(text).type(self.dtype)  # [batch_size, n_ctx, d_model]
 
         x = x + self.positional_embedding.type(self.dtype)[:x.size(1)]
         x = x.permute(1, 0, 2)  # NLD -> LND
@@ -448,8 +447,7 @@ class CLIP(nn.Module):
 
         # x.shape = [batch_size, n_ctx, transformer.width]
         # take features from the eot embedding (eot_token is the highest number in each sequence)
-        state = x[torch.arange(x.shape[0]),
-                  text.argmax(dim=-1)] @ self.text_projection
+        state = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
         # x = x @ self.text_projection
         # state = x[torch.arange(x.shape[0]), text.argmax(dim=-1)]
 
