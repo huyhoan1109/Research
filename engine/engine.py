@@ -13,7 +13,7 @@ from utils.simple_tokenizer import Tokenizer
 from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather, trainMetricGPU)
 
 
-def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
+def train(train_loader, wlogger, model, optimizer, scheduler, scaler, epoch, args):
     batch_time = AverageMeter('Batch', ':2.2f')
     data_time = AverageMeter('Data', ':2.2f')
     lr = AverageMeter('Lr', ':1.6f')
@@ -76,7 +76,7 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
         if (i + 1) % args.print_freq == 0:
             progress.display(i + 1)
             if dist.get_rank() in [-1, 0]:
-                wandb.log(
+                wlogger.logging(
                     {
                         "time/batch": batch_time.val,
                         "time/data": data_time.val,
@@ -84,8 +84,8 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args):
                         "training/loss": loss_meter.val,
                         "training/iou": iou_meter.val,
                         "training/prec@50": pr_meter.val,
-                    },
-                    step=epoch * len(train_loader) + (i + 1)
+                        "training/step": epoch * len(train_loader) + (i + 1)
+                    }
                 )
 
 
