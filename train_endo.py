@@ -97,7 +97,8 @@ def main_worker(gpu, args):
             project="CRIS",
             mode="online"
         )
-
+    else:
+        wlogger = None
     dist.barrier()
 
     # build model
