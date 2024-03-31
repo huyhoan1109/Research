@@ -97,8 +97,7 @@ class TransformerDecoder(nn.Module):
         pe = torch.zeros(d_model, height, width)
         # Each dimension use half of d_model
         d_model = int(d_model / 2)
-        div_term = torch.exp(
-            torch.arange(0., d_model, 2) * -(math.log(10000.0) / d_model))
+        div_term = torch.exp(torch.arange(0., d_model, 2) * -(math.log(10000.0) / d_model))
         pos_w = torch.arange(0., width).unsqueeze(1)
         pos_h = torch.arange(0., height).unsqueeze(1)
         pe[0:d_model:2, :, :] = torch.sin(pos_w * div_term).transpose(
@@ -157,11 +156,11 @@ class TransformerDecoderLayer(nn.Module):
                  dropout=0.1):
         super().__init__()
         # Normalization Layer
-        self.self_attn_norm = nn.LayerNorm(d_model)
-        self.cross_attn_norm = nn.LayerNorm(d_model)
+        self.vis_norm = nn.LayerNorm(d_model)
+        self.vis_txt_norm = nn.LayerNorm(d_model)
         # Attention Layer
-        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
-        self.multihead_attn = nn.MultiheadAttention(d_model,
+        self.vis_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.vis_txt_attn = nn.MultiheadAttention(d_model,
                                                     nhead,
                                                     dropout=dropout,
                                                     kdim=d_model,
@@ -195,17 +194,17 @@ class TransformerDecoderLayer(nn.Module):
         # Self-Attention
         vis2 = self.norm1(vis)
         q = k = self.with_pos_embed(vis2, vis_pos)
-        vis2 = self.self_attn(q, k, value=vis2)[0]
-        vis2 = self.self_attn_norm(vis2)
+        vis2 = self.vis_attn(q, k, value=vis2)[0]
+        vis2 = self.vis_norm(vis2)
         vis = vis + self.dropout1(vis2)
         
         # Cross-Attention
         vis2 = self.norm2(vis)
-        vis2 = self.multihead_attn(query=self.with_pos_embed(vis2, vis_pos),
+        vis2 = self.vis_txt_attn(query=self.with_pos_embed(vis2, vis_pos),
                                    key=self.with_pos_embed(txt, txt_pos),
                                    value=txt,
                                    key_padding_mask=pad_mask)[0]
-        vis2 = self.cross_attn_norm(vis2)
+        vis2 = self.vis_txt_norm(vis2)
         vis = vis + self.dropout2(vis2)
         
         # FFN
