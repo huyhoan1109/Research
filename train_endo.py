@@ -67,16 +67,10 @@ def main():
     args.ngpus_per_node = torch.cuda.device_count()
     args.world_size = args.ngpus_per_node * args.world_size
 
-    wlogger = WandbLogger(args)
-    wlogger.init_logger(
-        project="CRIS",
-        mode="online"
-    )
-
-    mp.spawn(main_worker, nprocs=args.ngpus_per_node, args=(args, wlogger))
+    mp.spawn(main_worker, nprocs=args.ngpus_per_node, args=(args, ))
 
 
-def main_worker(gpu, args, wlogger):
+def main_worker(gpu, args):
     args.output_dir = os.path.join(args.output_folder, args.exp_name)
 
     # local rank & global rank
@@ -97,12 +91,12 @@ def main_worker(gpu, args, wlogger):
                             rank=args.rank)
 
     # wandb
-    # if args.rank == 0:
-    #     wlogger = WandbLogger(args)
-    #     wlogger.init_logger(
-    #         project="CRIS",
-    #         mode="online"
-    #     )
+    if args.rank == 0:
+        wlogger = WandbLogger(args)
+        wlogger.init_logger(
+            project="CRIS",
+            mode="online"
+        )
 
     dist.barrier()
 
@@ -194,12 +188,12 @@ def main_worker(gpu, args, wlogger):
         train_sampler.set_epoch(epoch_log)
 
         # train
-        train(train_loader, wlogger, model, optimizer, scheduler, scaler, epoch_log, args)
+        train(train_loader, model, optimizer, scheduler, scaler, epoch_log, args, wlogger)
 
         # evaluation
         iou, prec_dict = validate(val_loader, model, epoch_log, args)
 
-        if dist.get_rank() in [-1, 0]:
+        if dist.get_rank() == 0:
             # loggin
             val_log = dict({
                 'eval/iou': iou,
@@ -209,8 +203,7 @@ def main_worker(gpu, args, wlogger):
                 log_key = key.lower()
                 val_log[f'eval/{log_key}'] = prec_dict[key]
             wlogger.logging(val_log)
-
-        if dist.get_rank() == 0:            
+          
             # save model
             lastname = os.path.join(args.output_dir, "last_model.pth")
             torch.save(
