@@ -97,12 +97,12 @@ def main_worker(gpu, args):
                             rank=args.rank)
 
     # wandb
-    if args.rank == 0:
-        wlogger = WandbLogger(args)
-        wlogger.init_logger(
-            project="CRIS",
-            mode="online"
-        )
+    # if args.rank == 0:
+    #     wlogger = WandbLogger(args)
+    #     wlogger.init_logger(
+    #         project="CRIS",
+    #         mode="online"
+    #     )
 
     dist.barrier()
 
