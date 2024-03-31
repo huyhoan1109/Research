@@ -76,7 +76,7 @@ def main():
     mp.spawn(main_worker, nprocs=args.ngpus_per_node, args=(args, wlogger))
 
 
-def main_worker(gpu, args):
+def main_worker(gpu, args, wlogger):
     args.output_dir = os.path.join(args.output_folder, args.exp_name)
 
     # local rank & global rank
