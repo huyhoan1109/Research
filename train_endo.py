@@ -66,7 +66,14 @@ def main():
 
     args.ngpus_per_node = torch.cuda.device_count()
     args.world_size = args.ngpus_per_node * args.world_size
-    mp.spawn(main_worker, nprocs=args.ngpus_per_node, args=(args, ))
+
+    wlogger = WandbLogger(args)
+    wlogger.init_logger(
+        project="CRIS",
+        mode="online"
+    )
+
+    mp.spawn(main_worker, nprocs=args.ngpus_per_node, args=(args, wlogger))
 
 
 def main_worker(gpu, args):

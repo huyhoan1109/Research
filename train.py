@@ -64,10 +64,17 @@ def main():
 
     args.ngpus_per_node = torch.cuda.device_count()
     args.world_size = args.ngpus_per_node * args.world_size
-    mp.spawn(main_worker, nprocs=args.ngpus_per_node, args=(args, ))
+
+    wlogger = WandbLogger(args)
+    wlogger.init_logger(
+        project="CRIS",
+        mode="online"
+    )
+
+    mp.spawn(main_worker, nprocs=args.ngpus_per_node, args=(args, wlogger))
 
 
-def main_worker(gpu, args):
+def main_worker(gpu, args, wlogger):
     args.output_dir = os.path.join(args.output_folder, args.exp_name)
 
     # local rank & global rank
@@ -88,12 +95,12 @@ def main_worker(gpu, args):
                             rank=args.rank)
 
     # wandb
-    if args.rank == 0:
-        wlogger = WandbLogger(args)
-        wlogger.init_logger(
-            project="CRIS",
-            mode="online"
-        )
+    # if args.rank == 0:
+    #     wlogger = WandbLogger(args)
+    #     wlogger.init_logger(
+    #         project="CRIS",
+    #         mode="online"
+    #     )
     dist.barrier()
 
     # build model
@@ -117,8 +124,7 @@ def main_worker(gpu, args):
     # build dataset
     args.batch_size = int(args.batch_size / args.ngpus_per_node)
     args.batch_size_val = int(args.batch_size_val / args.ngpus_per_node)
-    args.workers = int(
-        (args.workers + args.ngpus_per_node - 1) / args.ngpus_per_node)
+    args.workers = int((args.workers + args.ngpus_per_node - 1) / args.ngpus_per_node)
     train_data = RefDataset(lmdb_dir=args.train_lmdb,
                             mask_dir=args.mask_root,
                             dataset=args.dataset,

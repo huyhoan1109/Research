@@ -165,6 +165,7 @@ class TransformerDecoderLayer(nn.Module):
                                                     dropout=dropout,
                                                     kdim=d_model,
                                                     vdim=d_model)
+
         # FFN
         self.ffn = nn.Sequential(
             nn.Linear(d_model, dim_feedforward),
