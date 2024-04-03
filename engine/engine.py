@@ -135,7 +135,7 @@ def validate(val_loader, model, epoch, args):
     prec = {}
     temp = '  '
     for i, thres in enumerate(range(5, 10)):
-        key = 'Pr@{}'.format(thres * 10)
+        key = 'Prec@{}'.format(thres * 10)
         value = prec_list[i].item()
         prec[key] = value
         temp += "{}: {:.2f}  ".format(key, 100. * value)
@@ -207,7 +207,7 @@ def inference(test_loader, model, args):
     iou = iou_list.mean()
     prec = {}
     for i, thres in enumerate(range(5, 10)):
-        key = 'Pr@{}'.format(thres*10)
+        key = 'Prec@{}'.format(thres*10)
         value = prec_list[i].item()
         prec[key] = value
     logger.info('IoU={:.2f}'.format(100.*iou.item()))
