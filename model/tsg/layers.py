@@ -293,96 +293,11 @@ class FPN(nn.Module):
         
         # query
         fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
-        fq = torch.cat([fq3, fq4, fq5], dim=1)
-        fusion = self.aggr(fq)
-        fusion = self.coordconv(fusion)
+        r_fusion = torch.cat([fq3, fq4, fq5], dim=1)
+        fq = self.aggr(r_fusion)
+        fq = self.coordconv(fq)
         # b, 512, 26, 26
-        return fusion, fq
-
-class newFPN(nn.Module):
-    def __init__(self,
-                 in_channels=[512, 1024, 1024],
-                 out_channels=[256, 512, 1024],
-                 word_dim=1024):
-        super(newFPN, self).__init__()
-        # text projection
-        self.txt_proj1 = linear_layer(word_dim, out_channels[2])
-        self.txt_proj2 = linear_layer(word_dim, out_channels[1])
-        self.txt_proj3 = linear_layer(word_dim, out_channels[0])
-        
-        # fusion 1: v5 & seq -> f_5: b, 1024, 13, 13
-        self.f1_v_proj = conv_layer(in_channels[2], out_channels[2], 1, 0)
-        self.norm_layer1 = nn.Sequential(
-            nn.BatchNorm2d(out_channels[2]),
-            nn.ReLU(True)
-        )
-        # fusion 2: v4 & fm -> f_4: b, 512, 26, 26
-        self.f2_v_proj = conv_layer(in_channels[1], out_channels[1], 3, 1)
-        self.norm_layer2 = nn.Sequential(
-            nn.BatchNorm2d(out_channels[1]),
-            nn.ReLU(True)
-        )
-        
-        # fusion 3: v3 & fm_mid -> f_3: b, 512, 52, 52
-        self.f3_v_proj = conv_layer(in_channels[0], out_channels[0], 3, 1)
-        self.norm_layer3 = nn.Sequential(
-            nn.BatchNorm2d(out_channels[0]), 
-            nn.ReLU(True)
-        )
-                
-        # fusion 4: f_3 & f_4 & f_5 -> fq: b, 256, 26, 26
-        self.f4_proj5 = nn.Sequential(
-            conv_layer(out_channels[2], out_channels[1], 3, 1),
-            CoordConv(out_channels[1], out_channels[1], 3, 1),
-        )
-        self.f4_proj4 = nn.Sequential(
-            conv_layer(out_channels[1], out_channels[1], 3, 1),
-            CoordConv(out_channels[1], out_channels[1], 3, 1)
-        )
-        self.f4_proj3 = nn.Sequential(
-            conv_layer(out_channels[0], out_channels[1], 3, 1),
-            CoordConv(out_channels[1], out_channels[1], 3, 1)
-        )
-
-        self.aggr = conv_layer(3 * out_channels[1], 3 * out_channels[1], 1, 0)
-
-    def forward(self, imgs, state):
-        # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
-        v, v3, v4, v5 = imgs
-        # fusion 1: b, 1024, 13, 13
-        # text projection 1: b, 1024 -> b, 1024
-        state1 = self.txt_proj1(state).unsqueeze(-1).unsqueeze(-1)  # b, 1024, 1, 1
-        f5 = self.f1_v_proj(v5)
-        f5 = self.norm_layer1(f5 * state1)
-        
-        # fusion 2: b, 512, 26, 26
-        # text projection 2: b, 1024 -> b, 512
-        state2 = self.txt_proj2(state).unsqueeze(-1).unsqueeze(-1)  # b, 512, 1, 1
-        f4 = self.f2_v_proj(v4)
-        f4 = self.norm_layer2(f4 * state2) 
-        
-        # fusion 3: b, 256, 26, 26
-        # text projection 3: b, 1024 -> b, 256
-        state3 = self.txt_proj3(state).unsqueeze(-1).unsqueeze(-1)  # b, 256, 1, 1
-        f3 = self.f3_v_proj(v3)
-        f3 = self.norm_layer3(f3 * state3)
-        f3 = F.avg_pool2d(f3, 2, 2)
-        
-        # fusion 4: b, 512, 13, 13 / b, 512, 26, 26 / b, 512, 26, 26
-        fq5 = self.f4_proj5(f5)
-        fq4 = self.f4_proj4(f4)
-        fq3 = self.f4_proj3(f3)
-        
-        # query
-        fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
-        # b, 512, 26, 26
-        # return fq3, fq4, fq5
-        
-        fq = torch.cat([fq3, fq4, fq5], dim=1)
-        fq = self.aggr(fq)
-        
-        # # b, 512, 26, 26
-        return fq
+        return fq, r_fusion
 
 class Projector(nn.Module):
     def __init__(self, word_dim=1024, in_dim=256, kernel_size=3):

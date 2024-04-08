@@ -6,7 +6,6 @@ DATA:
   val_split: val
   mask_root: datasets/masks/refcocog_u
 TRAIN:
-  neck: base
   # Add id to continue training (to continue training => continue_training = 'must')
   run_id: 
   continue_training: 

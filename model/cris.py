@@ -6,7 +6,7 @@ from model.clip import build_model
 from loss import CELoss, FocalLoss, DiceLoss
 
 
-from .layers import FPN, Projector, TransformerDecoder, newFPN
+from .layers import FPN, Projector, TransformerDecoder
 
 class CRIS(nn.Module):
     def __init__(self, cfg):
@@ -16,11 +16,8 @@ class CRIS(nn.Module):
                                     map_location="cpu").eval()
         self.backbone = build_model(clip_model.state_dict(), cfg.word_len).float()
         
-        # Multi-Modal FPN
-        if cfg.neck == 'base':
-            self.neck = FPN(in_channels=cfg.fpn_in, out_channels=cfg.fpn_out)
-        else:
-            self.neck = newFPN(in_channels=cfg.fpn_in, out_channels=cfg.fpn_out, word_dim=cfg.word_dim)
+        # Multi-Modal fusion
+        self.neck = FPN(in_channels=cfg.fpn_in, out_channels=cfg.fpn_out)
         
         # Decoder
         self.decoder = TransformerDecoder(num_layers=cfg.num_layers,
@@ -49,18 +46,19 @@ class CRIS(nn.Module):
         # padding mask used in decoder
         pad_mask = torch.zeros_like(word).masked_fill_(word == 0, 1).bool()
 
-        # vis: C3 / C4 / C5
+        # vis: x1, x2, x3, x4
         # word: b, length, 1024
         # state: b, 1024
         vis = self.backbone.encode_image(img)
         word, state = self.backbone.encode_text(word)
-
-        # b, 512 *3, 26, 26 (fusion)
-        fq = self.neck(vis, state)
-        b, _, h, w = fq.size()
-        out = self.decoder(fq, word, pad_mask)
+        print([i.size() for i in vis])
+        return 
+        # fusion: b, 512, 26, 26 
+        fusion = self.neck(vis, state)
+        b, _, h, w = fusion.size()
+        out = self.decoder(fusion, word, pad_mask)
         out = out.reshape(b, h, w, -1).permute(0, 3, 1, 2)
-        # b, 1, 104, 104
+        # pred: b, 1, 104, 104
         pred = self.proj(out, state)
 
         if self.training:

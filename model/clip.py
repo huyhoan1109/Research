@@ -214,13 +214,19 @@ class ModifiedResNet(nn.Module):
 
         x = x.type(self.conv1.weight.dtype)
         x = stem(x)
-        x = self.layer1(x)
-        x2 = self.layer2(x)
-        x3 = self.layer3(x2)
-        x4 = self.layer4(x3)
-        x4 = self.attnpool(x4)  # fattn
+        
+        # x1 [4, 256, 56, 56] 
+        # x2 [4, 512, 28, 28]
+        # x3 [4, 1024, 14, 14] 
+        # x4 [4, 1024, 7, 7]
 
-        return (x, x2, x3, x4)
+        x1 = self.layer1(x)
+        x2 = self.layer2(x1)
+        x3 = self.layer3(x2) 
+        x4 = self.layer4(x3) 
+        x4 = self.attnpool(x4)  
+        
+        return (x1, x2, x3, x4)
 
 
 class LayerNorm(nn.LayerNorm):
@@ -278,8 +284,18 @@ class Transformer(nn.Module):
             for _ in range(layers)
         ])
 
-    def forward(self, x: torch.Tensor):
-        return self.resblocks(x)
+    def forward(self, x: torch.Tensor, vit: bool = False, took_feats: int = 4):
+        if vit:
+            assert self.layers >= took_feats
+            last_ids = [i for i in range(self.layers-took_feats, self.layers)]
+            last_feats = []
+            for i in range(self.layers):
+                x = self.resblocks[i](x)
+                if i in last_ids:
+                    last_feats.append(x)
+            return set(last_feats)
+        else: 
+            return self.resblocks(x)
 
 
 class VisionTransformer(nn.Module):
@@ -296,8 +312,7 @@ class VisionTransformer(nn.Module):
 
         scale = width**-0.5
         self.class_embedding = nn.Parameter(scale * torch.randn(width))
-        self.positional_embedding = nn.Parameter(scale * torch.randn(
-            (input_resolution // patch_size)**2 + 1, width))
+        self.positional_embedding = nn.Parameter(scale * torch.randn((input_resolution // patch_size)**2 + 1, width))
         self.ln_pre = LayerNorm(width)
 
         self.transformer = Transformer(width, layers, heads)
@@ -306,29 +321,40 @@ class VisionTransformer(nn.Module):
         self.proj = nn.Parameter(scale * torch.randn(width, output_dim))
 
     def forward(self, x: torch.Tensor):
-        x = self.conv1(x)  # shape = [*, width, grid, grid]
-        x = x.reshape(x.shape[0], x.shape[1],
-                      -1)  # shape = [*, width, grid ** 2]
-        x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width]
+        x = self.conv1(x)  # shape = [*, channel, grid, grid]
+        shape = x.size()
+        batch, channel, grid = shape[0], shape[1], shape[-1]
+        x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, channel, grid ** 2]
+        x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, channel]
         x = torch.cat([
-            self.class_embedding.to(x.dtype) + torch.zeros(
-                x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device), x
-        ],
-                      dim=1)  # shape = [*, grid ** 2 + 1, width]
+            self.class_embedding.to(x.dtype) + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device)
+            , x
+        ], dim=1)  # shape = [*, grid ** 2 + 1, channel]
         x = x + self.positional_embedding.to(x.dtype)
         x = self.ln_pre(x)
 
         x = x.permute(1, 0, 2)  # NLD -> LND
-        x = self.transformer(x)
-        x = x.permute(1, 0, 2)  # LND -> NLD
+    
+        x1, x2, x3, x4 = self.transformer(x, vit=True, took_feats=4)
+        
+        x1 = x1.permute(1, 0, 2)  # LND -> NLD
+        x2 = x2.permute(1, 0, 2)  # LND -> NLD
+        x3 = x3.permute(1, 0, 2)  # LND -> NLD
+        x4 = x4.permute(1, 0, 2)  # LND -> NLD
 
-        # x = self.ln_post(x[:, 0, :])
-        x = self.ln_post(x[:, 1:, :])
+        # Drop class embedding
+        x1, x2, x3 = x1[:, 1:, :], x2[:, 1:, :], x3[:, 1:, :]
+        x4 = self.ln_post(x4[:, 1:, :])
 
         if self.proj is not None:
-            x = x @ self.proj
+            x4 = x4 @ self.proj
+        
+        x1 = x1.permute(0, 2, 1).reshape(batch, channel, grid, grid)
+        x2 = x2.permute(0, 2, 1).reshape(batch, channel, grid, grid)
+        x3 = x3.permute(0, 2, 1).reshape(batch, channel, grid, grid)
+        x4 = x4.permute(0, 2, 1).reshape(batch, self.output_dim, grid, grid)
 
-        return x
+        return x1, x2, x3, x4
 
 
 class CLIP(nn.Module):
@@ -376,8 +402,7 @@ class CLIP(nn.Module):
 
         self.vocab_size = vocab_size
         self.token_embedding = nn.Embedding(vocab_size, transformer_width)
-        self.positional_embedding = nn.Parameter(
-            torch.empty(self.context_length, transformer_width))
+        self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
         self.ln_final = LayerNorm(transformer_width)
 
         self.text_projection = nn.Parameter(
@@ -441,7 +466,7 @@ class CLIP(nn.Module):
 
         x = x + self.positional_embedding.type(self.dtype)[:x.size(1)]
         x = x.permute(1, 0, 2)  # NLD -> LND
-        x = self.transformer(x)
+        x = self.transformer(x, vit=False)
         x = x.permute(1, 0, 2)  # LND -> NLD
         x = self.ln_final(x).type(self.dtype)
 
@@ -535,9 +560,8 @@ def build_model(state_dict: dict, txt_length: int):
     transformer_width = state_dict["ln_final.weight"].shape[0]
     transformer_heads = transformer_width // 64
     transformer_layers = len(
-        set(
-            k.split(".")[2] for k in state_dict
-            if k.startswith(f"transformer.resblocks")))
+        set(k.split(".")[2] for k in state_dict if k.startswith(f"transformer.resblocks"))
+    )
 
     model = CLIP(embed_dim, image_resolution, vision_layers, vision_width,
                  vision_patch_size, context_length, txt_length, vocab_size,
