@@ -291,7 +291,6 @@ class Transformer(nn.Module):
             for i in range(self.layers):
                 x = self.resblocks[i](x)
                 if i in last_ids:
-                    x = self.resblocks[i](x)
                     last_feats.append(x)
             return set(last_feats)
         else: 
