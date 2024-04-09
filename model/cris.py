@@ -51,8 +51,7 @@ class CRIS(nn.Module):
         # state: b, 1024
         vis = self.backbone.encode_image(img)
         word, state = self.backbone.encode_text(word)
-        print([i.size() for i in vis])
-        return 
+         
         # fusion: b, 512, 26, 26 
         fusion = self.neck(vis, state)
         b, _, h, w = fusion.size()
