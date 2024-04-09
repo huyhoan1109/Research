@@ -15,7 +15,7 @@ TRAIN:
   gamma: 2
   smooth: 1e-7
   # Base Arch
-  clip_pretrain: /kaggle/input/pretrain/ViT-B-16.pt
+  clip_pretrain: /kaggle/input/pretrain/ViT-B-32.pt
   input_size: 416
   word_len: 17
   word_dim: 512
@@ -45,7 +45,7 @@ TRAIN:
   manual_seed: 0
   print_freq: 100
   # Resume & Save
-  exp_name: CRIS_VIT16
+  exp_name: CRIS_VIT32
   output_folder: exp/refcoco
   save_freq: 1
   weight:  # path to initial weight (default: none)

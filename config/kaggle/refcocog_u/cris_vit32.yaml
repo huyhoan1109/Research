@@ -1,10 +1,10 @@
 DATA:
-  dataset: refcoco
-  train_lmdb: /kaggle/input/refcoco/lmdb/refcoco/train.lmdb
+  dataset: refcocog_u
+  train_lmdb: /kaggle/input/refcocog-u/lmdb/refcocog_u/train.lmdb
   train_split: train
-  val_lmdb: /kaggle/input/refcoco/lmdb/refcoco/val.lmdb
+  val_lmdb: /kaggle/input/refcocog-u/lmdb/refcocog_u/val.lmdb
   val_split: val
-  mask_root: /kaggle/input/refcoco/masks/refcoco
+  mask_root: /kaggle/input/refcocog-u/masks/refcocog_u
 TRAIN:
   # Add id to continue training (to continue training => continue_training = 'must')
   run_id: 
@@ -15,9 +15,9 @@ TRAIN:
   gamma: 2
   smooth: 1e-7
   # Base Arch
-  clip_pretrain: /kaggle/input/pretrain/ViT-B-16.pt
+  clip_pretrain: /kaggle/input/pretrain/ViT-B-32.pt
   input_size: 416
-  word_len: 17
+  word_len: 22
   word_dim: 512
   vis_dim: 512
   fpn_in: [768, 768, 512]
@@ -36,7 +36,7 @@ TRAIN:
   milestones: [35]
   start_epoch: 0
   batch_size: 32  # batch size for training
-  batch_size_val: 32  # batch size for validation during training, memory and speed tradeoff
+  batch_size_val: 64  # batch size for validation during training, memory and speed tradeoff
   base_lr: 0.0001
   lr_decay: 0.1
   lr_multi: 0.1
@@ -45,8 +45,8 @@ TRAIN:
   manual_seed: 0
   print_freq: 100
   # Resume & Save
-  exp_name: CRIS_VIT16
-  output_folder: exp/refcoco
+  exp_name: CRIS_VIT32
+  output_folder: exp/refcocog_u
   save_freq: 1
   weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
@@ -59,5 +59,5 @@ Distributed:
   rank: 0
 TEST:
   test_split: val-test
-  test_lmdb: /kaggle/input/refcoco/lmdb/refcoco/val.lmdb
+  test_lmdb: /kaggle/input/refcocog-u/lmdb/refcocog_u/val.lmdb
   visualize: False

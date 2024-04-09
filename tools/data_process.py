@@ -41,8 +41,7 @@ elif args.dataset == 'refcoco':
 elif args.dataset == 'refcoco+':
     splits = ['train', 'val', 'testA', 'testB']
 elif args.dataset == 'refcocog':
-    splits = ['train', 'val',
-              'test']  # we don't have test split for refcocog right now.
+    splits = ['train', 'val', 'test']  # we don't have test split for refcocog right now.
 
 for split in splits:
     ref_ids = refer.getRefIds(split=split)

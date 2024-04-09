@@ -77,12 +77,12 @@ class AttentionPool2d(nn.Module):
             nn.Conv2d(embed_dim, output_dim, 1, stride=1, bias=False),
             nn.BatchNorm2d(output_dim))
 
-    def resize_pos_embed(self, pos_embed, input_shpae):
+    def resize_pos_embed(self, pos_embed, input_shape):
         """Resize pos_embed weights.
         Resize pos_embed using bicubic interpolate method.
         Args:
             pos_embed (torch.Tensor): Position embedding weights.
-            input_shpae (tuple): Tuple for (downsampled input image height,
+            input_shape (tuple): Tuple for (downsampled input image height,
                 downsampled input image width).
             pos_shape (tuple): The resolution of downsampled origin training
                 image.
@@ -96,10 +96,9 @@ class AttentionPool2d(nn.Module):
         pos_h = pos_w = self.spacial_dim
         cls_token_weight = pos_embed[:, 0]
         pos_embed_weight = pos_embed[:, (-1 * pos_h * pos_w):]
-        pos_embed_weight = pos_embed_weight.reshape(
-            1, pos_h, pos_w, pos_embed.shape[2]).permute(0, 3, 1, 2)
+        pos_embed_weight = pos_embed_weight.reshape(1, pos_h, pos_w, pos_embed.shape[2]).permute(0, 3, 1, 2)
         pos_embed_weight = F.interpolate(pos_embed_weight,
-                                         size=input_shpae,
+                                         size=input_shape,
                                          align_corners=False,
                                          mode='bicubic')
         cls_token_weight = cls_token_weight.unsqueeze(1)
@@ -292,6 +291,7 @@ class Transformer(nn.Module):
             for i in range(self.layers):
                 x = self.resblocks[i](x)
                 if i in last_ids:
+                    x = self.resblocks[i](x)
                     last_feats.append(x)
             return set(last_feats)
         else: 
@@ -309,16 +309,27 @@ class VisionTransformer(nn.Module):
                                kernel_size=patch_size,
                                stride=patch_size,
                                bias=False)
-
         scale = width**-0.5
         self.class_embedding = nn.Parameter(scale * torch.randn(width))
-        self.positional_embedding = nn.Parameter(scale * torch.randn((input_resolution // patch_size)**2 + 1, width))
+        self.token_size = input_resolution // patch_size
+        self.positional_embedding = nn.Parameter(scale * torch.randn(self.token_size**2 + 1, width))
         self.ln_pre = LayerNorm(width)
 
         self.transformer = Transformer(width, layers, heads)
 
         self.ln_post = LayerNorm(width)
         self.proj = nn.Parameter(scale * torch.randn(width, output_dim))
+        
+    def resize_pos_embed(self, patch_size):
+        shape = self.positional_embedding[1:].size()
+        a = self.positional_embedding[1:].T.view(1, shape[1], self.token_size, self.token_size)
+        b = F.interpolate(
+            a, 
+            (patch_size, patch_size), 
+            mode='bicubic', 
+            align_corners=False
+        ).squeeze(0).view(768, patch_size * patch_size).T
+        return torch.cat([self.positional_embedding[:1], b])
 
     def forward(self, x: torch.Tensor):
         x = self.conv1(x)  # shape = [*, channel, grid, grid]
@@ -330,7 +341,11 @@ class VisionTransformer(nn.Module):
             self.class_embedding.to(x.dtype) + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device)
             , x
         ], dim=1)  # shape = [*, grid ** 2 + 1, channel]
-        x = x + self.positional_embedding.to(x.dtype)
+        
+        if grid == self.positional_embedding.size(0):
+            x = x + self.positional_embedding.to(x.dtype)
+        else:
+            x = x + self.resize_pos_embed(grid).to(x.dtype)
         x = self.ln_pre(x)
 
         x = x.permute(1, 0, 2)  # NLD -> LND

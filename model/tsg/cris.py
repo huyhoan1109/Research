@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.clip import build_model
+from model.clip import build_model, ModifiedResNet
 from loss import CELoss, FocalLoss, DiceLoss
 
 from .layers import FPN, Projector, TransformerDecoder
@@ -55,7 +55,11 @@ class CRIS(nn.Module):
         word, state = self.backbone.encode_text(word) # text embeddings, text features
         
         # fusion = fq, r_fusion
-        fusion = self.neck(vis, state)
+        if isinstance(self.backbone.visual, ModifiedResNet):
+            fusion = self.neck(vis, state, True)
+        else:
+            fusion = self.neck(vis, state, False)
+        
         b, _, h, w = fusion[0].size()
         out = self.decoder(fusion, word, pad_mask)
         out = out.reshape(b, h, w, -1).permute(0, 3, 1, 2)
