@@ -327,7 +327,7 @@ class VisionTransformer(nn.Module):
             (patch_size, patch_size), 
             mode='bicubic', 
             align_corners=False
-        ).squeeze(0).view(768, patch_size * patch_size).T
+        ).squeeze(0).view(shape[1], patch_size * patch_size).T
         return torch.cat([self.positional_embedding[:1], b])
 
     def forward(self, x: torch.Tensor):
