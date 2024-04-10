@@ -4,46 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-def conv_layer(in_dim, out_dim, kernel_size=1, padding=0, stride=1):
-    return nn.Sequential(
-        nn.Conv2d(in_dim, out_dim, kernel_size, stride, padding, bias=False),
-        nn.BatchNorm2d(out_dim), 
-        nn.ReLU(True)
-    )
-
-
-def linear_layer(in_dim, out_dim, bias=False):
-    return nn.Sequential(nn.Linear(in_dim, out_dim, bias),
-                         nn.BatchNorm1d(out_dim), nn.ReLU(True))
-
-
-class CoordConv(nn.Module):
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 kernel_size=3,
-                 padding=1,
-                 stride=1):
-        super().__init__()
-        self.conv1 = conv_layer(in_channels + 2, out_channels, kernel_size,
-                                padding, stride)
-
-    def add_coord(self, input):
-        b, _, h, w = input.size()
-        x_range = torch.linspace(-1, 1, w, device=input.device)
-        y_range = torch.linspace(-1, 1, h, device=input.device)
-        y, x = torch.meshgrid(y_range, x_range)
-        y = y.expand([b, 1, -1, -1])
-        x = x.expand([b, 1, -1, -1])
-        coord_feat = torch.cat([x, y], 1)
-        input = torch.cat([input, coord_feat], 1)
-        return input
-
-    def forward(self, x):
-        x = self.add_coord(x)
-        x = self.conv1(x)
-        return x
+from model.backbone.base import conv_layer, linear_layer, CoordConv
 
 class TransformerDecoder(nn.Module):
     def __init__(self,
@@ -243,36 +204,42 @@ class FPN(nn.Module):
             conv_layer(out_channels[1], out_channels[1], 3, 1)
         )
 
-    def forward(self, imgs, state, multi_scale=True):
+    def forward(self, imgs, state):
         # text projection: b, 1024 -> b, 1024
         state = self.txt_proj(state).unsqueeze(-1).unsqueeze(-1)  # b, 1024, 1, 1
-        if multi_scale:
-            _, v3, v4, v5 = imgs
-            f5 = self.f1_v_proj(v5)
-            f4 = self.f2_v_proj(v4)
-            f3 = self.f3_v_proj(v3)
-            # fusion 1: b, 1024, 13, 13
-            f5 = self.norm_layer(f5 * state)
-            # fusion 2: b, 512, 26, 26
-            f5_ = F.interpolate(f5, scale_factor=2, mode='bilinear')
-            f4 = self.f2_cat(torch.cat([f4, f5_], dim=1))
-            # fusion 3: b, 256, 26, 26
-            f3 = F.avg_pool2d(f3, 2, 2)
-            f3 = self.f3_cat(torch.cat([f3, f4], dim=1))
-            # fusion 4: b, 512, 13, 13 / b, 512, 26, 26 / b, 512, 26, 26
-            fq5 = self.f4_proj5(f5)
-            fq4 = self.f4_proj4(f4)
-            fq3 = self.f4_proj3(f3)
-            # query
-            fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
-            fq = torch.cat([fq3, fq4, fq5], dim=1)
-        else:
-            v = imgs
-            f = self.f1_v_proj(v)
-            f_ = self.norm_layer(f * state).detach()
-            fq = torch.cat([f_, f_, f_], dim=1)
+        
+        # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
+        v3, v4, v5 = imgs
+
+        # first projection
+        f5 = self.f1_v_proj(v5)
+        f4 = self.f2_v_proj(v4)
+        f3 = self.f3_v_proj(v3)
+        
+        # fusion 1: b, 1024, 13, 13
+        f5 = self.norm_layer(f5 * state)
+        
+        # fusion 2: b, 512, 26, 26
+        f5_ = F.interpolate(f5, scale_factor=2, mode='bilinear')
+        f4 = self.f2_cat(torch.cat([f4, f5_], dim=1))
+        
+        # fusion 3: b, 256, 26, 26
+        f3 = F.avg_pool2d(f3, 2, 2)
+        f3 = self.f3_cat(torch.cat([f3, f4], dim=1))
+        
+        # fusion 4: b, 512, 13, 13 / b, 512, 26, 26 / b, 512, 26, 26
+        fq5 = self.f4_proj5(f5)
+        fq4 = self.f4_proj4(f4)
+        fq3 = self.f4_proj3(f3)
+        
+        # query
+        fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
+        fq = torch.cat([fq3, fq4, fq5], dim=1)
+
+        # final
         fq = self.aggr(fq)
         fq = self.coordconv(fq)
+        
         # b, 512, 26, 26
         return fq
 
