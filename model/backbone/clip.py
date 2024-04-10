@@ -196,8 +196,7 @@ class ModifiedResNet(nn.Module):
         self.layer4 = self._make_layer(width * 8, layers[3], stride=2)
 
         embed_dim = width * 32  # the ResNet feature dimension
-        self.attnpool = AttentionPool2d(input_resolution // 32, embed_dim,
-                                        heads, output_dim)
+        self.attnpool = AttentionPool2d(input_resolution // 32, embed_dim, heads, output_dim)
 
     def _make_layer(self, planes, blocks, stride=1):
         layers = [Bottleneck(self._inplanes, planes, stride)]
@@ -289,16 +288,8 @@ class Transformer(nn.Module):
             for _ in range(layers)
         ])
 
-    def forward(self, x: torch.Tensor, vit: bool = True, took_feats: list = []):
-        if vit:
-            last_feats = []
-            for i in range(self.layers):
-                x = self.resblocks[i](x)
-                if i in took_feats:
-                    last_feats.append(x)
-            return set(last_feats)
-        else:
-            return x
+    def forward(self, x: torch.Tensor):
+        return self.resblocks(x)
 
 
 class VisionTransformer(nn.Module):
@@ -329,10 +320,7 @@ class VisionTransformer(nn.Module):
 
         self.ln_post = LayerNorm(width)
         self.proj = nn.Parameter(scale * torch.randn(width, output_dim))
-        tr_layers = self.transformer.layers
-        assert tr_layers >= 3
-        self.took_feats = [tr_layers // 3, tr_layers // 2 + 1, tr_layers - 1]
-        
+
     def resize_pos_embed(self, patch_size):
         shape = self.positional_embedding[1:].size()
         a = self.positional_embedding[1:].T.view(1, shape[1], self.token_size, self.token_size)
@@ -347,7 +335,7 @@ class VisionTransformer(nn.Module):
     def forward(self, x: torch.Tensor):
         x = self.conv1(x)  # shape = [*, channel, grid, grid]
         shape = x.size()
-        batch, channel, grid = shape[0], shape[1], shape[-1]
+        batch, grid = shape[0], shape[-1]
         x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, channel, grid ** 2]
         x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, channel]
         x = torch.cat([
@@ -360,25 +348,20 @@ class VisionTransformer(nn.Module):
         else:
             x = x + self.resize_pos_embed(grid).to(x.dtype)
         
-        x1 = self.ln_pre(x)
-        x1 = x1.permute(1, 0, 2)  # NLD -> LND
+        x = self.ln_pre(x)
+        x = x.permute(1, 0, 2)  # NLD -> LND
         
-        x2, x3, x4 = self.transformer(x1, vit=True, took_feats=self.took_feats)
-        x2 = x2.permute(1, 0, 2)  # LND -> NLD
-        x3 = x3.permute(1, 0, 2)  # LND -> NLD
-        x4 = x4.permute(1, 0, 2)  # LND -> NLD
+        x = self.transformer(x)
+        x = x.permute(1, 0, 2)  # LND -> NLD
         
         # Drop class embedding
-        x2 = x2[:, 1:, :]
-        x3 = x3[:, 1:, :]
-        x4 = self.ln_post(x4[:, 1:, :])
+        x = self.ln_post(x[:, 1:, :])
         
         if self.proj is not None:
-            x4 = x4 @ self.proj  
-        x2 = x3.permute(0, 2, 1).reshape(batch, channel, grid, grid)
-        x3 = x3.permute(0, 2, 1).reshape(batch, channel, grid, grid)
-        x4 = x4.permute(0, 2, 1).reshape(batch, self.output_dim, grid, grid)
-        return x2, x3, x4
+            x = x @ self.proj  
+
+        x = x.permute(0, 2, 1).reshape(batch, self.output_dim, grid, grid)
+        return x
 
 
 class CLIP(nn.Module):
@@ -429,8 +412,7 @@ class CLIP(nn.Module):
         self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
         self.ln_final = LayerNorm(transformer_width)
 
-        self.text_projection = nn.Parameter(
-            torch.empty(transformer_width, embed_dim))
+        self.text_projection = nn.Parameter(torch.empty(transformer_width, embed_dim))
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
         self.token_embedding.requires_grad_ = False
@@ -449,17 +431,19 @@ class CLIP(nn.Module):
                 nn.init.normal_(self.visual.attnpool.c_proj.weight, std=std)
 
             for resnet_block in [
-                    self.visual.layer1, self.visual.layer2, self.visual.layer3,
-                    self.visual.layer4
+                self.visual.layer1, 
+                self.visual.layer2, 
+                self.visual.layer3,
+                self.visual.layer4
             ]:
                 for name, param in resnet_block.named_parameters():
                     if name.endswith("bn3.weight"):
                         nn.init.zeros_(param)
 
-        proj_std = (self.transformer.width**-0.5) * (
-            (2 * self.transformer.layers)**-0.5)
+        proj_std = (self.transformer.width**-0.5) * ((2 * self.transformer.layers)**-0.5)
         attn_std = self.transformer.width**-0.5
         fc_std = (2 * self.transformer.width)**-0.5
+        
         for block in self.transformer.resblocks:
             nn.init.normal_(block.attn.in_proj_weight, std=attn_std)
             nn.init.normal_(block.attn.out_proj.weight, std=proj_std)
@@ -467,8 +451,7 @@ class CLIP(nn.Module):
             nn.init.normal_(block.mlp.c_proj.weight, std=proj_std)
 
         if self.text_projection is not None:
-            nn.init.normal_(self.text_projection,
-                            std=self.transformer.width**-0.5)
+            nn.init.normal_(self.text_projection, std=self.transformer.width**-0.5)
 
     def build_attention_mask(self, context_length):
         # lazily create causal attention mask, with full attention between the vision tokens
@@ -490,7 +473,7 @@ class CLIP(nn.Module):
 
         x = x + self.positional_embedding.type(self.dtype)[:x.size(1)]
         x = x.permute(1, 0, 2)  # NLD -> LND
-        x = self.transformer(x, False)
+        x = self.transformer(x)
         x = x.permute(1, 0, 2)  # LND -> NLD
         x = self.ln_final(x).type(self.dtype)
 
@@ -507,10 +490,8 @@ class CLIP(nn.Module):
         text_features = self.encode_text(text)
 
         # normalized features
-        image_features = image_features / image_features.norm(dim=-1,
-                                                              keepdim=True)
-        text_features = text_features / text_features.norm(dim=-1,
-                                                           keepdim=True)
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
         # cosine similarity as logits
         logit_scale = self.logit_scale.exp()
@@ -531,8 +512,8 @@ def convert_weights(model: nn.Module):
 
         if isinstance(l, nn.MultiheadAttention):
             for attr in [
-                    *[f"{s}_proj_weight" for s in ["in", "q", "k", "v"]],
-                    "in_proj_bias", "bias_k", "bias_v"
+                *[f"{s}_proj_weight" for s in ["in", "q", "k", "v"]],
+                "in_proj_bias", "bias_k", "bias_v"
             ]:
                 tensor = getattr(l, attr)
                 if tensor is not None:
@@ -558,7 +539,8 @@ def build_model(state_dict: dict, txt_length: int):
         ])
         vision_patch_size = state_dict["visual.conv1.weight"].shape[-1]
         grid_size = round(
-            (state_dict["visual.positional_embedding"].shape[0] - 1)**0.5)
+            (state_dict["visual.positional_embedding"].shape[0] - 1)**0.5
+        )
         image_resolution = vision_patch_size * grid_size
     else:
         counts: list = [

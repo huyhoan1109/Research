@@ -53,22 +53,48 @@ class Backbone(nn.Module):
         weight = torch.jit.load(cfg.clip_pretrain, map_location="cpu").eval()
         self.clip = build_model(weight.state_dict(), cfg.word_len).float()
         self.multi_scale = isinstance(self.clip, ModifiedResNet)
+            
         if not self.multi_scale:
+            
+            num_layers = self.clip.visual.transformer.layers
+            
+            self.vis_channel = 768 
+
+            assert num_layers >= 3 
+            self.layer_indexes = [num_layers // 3, num_layers // 2 + 1]
+            
+            self.layers = []
+
+            for l in self.layer_indexes:
+                self.clip.visual.transformer.resblocks[l].register_forward_hook(lambda m, _, o: self.layers.append(o))
+        
             self.scale1 = nn.Sequential(
                 nn.Upsample(scale_factor=2, mode='bilinear'),
-                nn.ReLU(True),
+                conv_layer(self.vis_channel, self.vis_channel, 3, padding=1),
                 nn.Upsample(scale_factor=2, mode='bilinear'),
-                nn.ReLU(True)
+                conv_layer(self.vis_channel, self.vis_channel, 3, padding=1),
             )
-            self.scale2 = nn.Upsample(scale_factor=2, mode='bilinear')
+            
+            self.scale2 = nn.Sequential(
+                nn.Upsample(scale_factor=2, mode='bilinear'),
+                conv_layer(self.vis_channel, self.vis_channel, 3, padding=1),
+            )
+    
     def forward_visual(self, image):
         if self.multi_scale:
             return self.clip.encode_image(image) 
         else:
-            x2, x3, x4 = self.clip.encode_image(image)
+            self.layers = []
+            x4 = self.clip.encode_image(image)
+            batch, grid = x4.size(0), x4.size(-1)
+            x2 = self.layers[0][1:, :, :]
+            x3 = self.layers[1][1:, :, :]
+            x2 = x2.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
+            x3 = x3.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
             x2 = self.scale1(x2)
             x3 = self.scale2(x3)
             return x2, x3, x4
+    
     def forward_text(self, text):
         return self.clip.encode_text(text)
 
