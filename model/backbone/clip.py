@@ -312,6 +312,7 @@ class VisionTransformer(nn.Module):
                                bias=False)
         scale = width**-0.5
         self.class_embedding = nn.Parameter(scale * torch.randn(width))
+        self.token_size = input_resolution // patch_size
         self.positional_embedding = nn.Parameter(scale * torch.randn(self.token_size**2 + 1, width))
         self.ln_pre = LayerNorm(width)
 
