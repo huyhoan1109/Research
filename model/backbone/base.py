@@ -84,8 +84,8 @@ class Backbone(nn.Module):
             )
 
             self.proj3 = nn.Sequential(
-                conv_layer(self.vis_channel, out_channels[1], 3, 1),
-                CoordConv(out_channels[1], out_channels[1], 3, 1)
+                conv_layer(final_channel, out_channels[2], 3, 1),
+                CoordConv(out_channels[2], out_channels[2], 3, 1)
             )
             
     
