@@ -305,6 +305,7 @@ class VisionTransformer(nn.Module):
         super().__init__()
         self.input_resolution = input_resolution
         self.output_dim = output_dim
+        self.width = width
         self.conv1 = nn.Conv2d(in_channels=3,
                                out_channels=width,
                                kernel_size=patch_size,

@@ -59,41 +59,47 @@ class Backbone(nn.Module):
         if self.use_transformer:
             
             num_layers = self.clip.visual.transformer.layers
+            final_channel = self.clip.visual.transformer.output_dim
             assert num_layers >= 3 
-            
+            out_channels = cfg.fpn_in
             self.layer_indexes = [num_layers // 3, num_layers // 2 + 1]
-            self.vis_channel = 768 
+            self.vis_channel = self.clip.visual.transformer.width 
             self.clip_resolution = 224 
             self.layers = []
 
             for l in self.layer_indexes:
                 self.clip.visual.transformer.resblocks[l].register_forward_hook(lambda m, _, o: self.layers.append(o))
-        
-            self.scale1 = nn.Sequential(
+
+            self.proj1 = nn.Sequential(
                 nn.Upsample(scale_factor=2, mode='bilinear'),
-                conv_layer(self.vis_channel, self.vis_channel, 3, padding=1),
+                conv_layer(self.vis_channel, out_channels[0], 3, padding=1),
                 nn.Upsample(scale_factor=2, mode='bilinear'),
-                conv_layer(self.vis_channel, self.vis_channel, 3, padding=1),
+                CoordConv(out_channels[0], out_channels[0], 3, 1)
             )
             
-            self.scale2 = nn.Sequential(
+            self.proj2 = nn.Sequential(
                 nn.Upsample(scale_factor=2, mode='bilinear'),
-                conv_layer(self.vis_channel, self.vis_channel, 3, padding=1),
+                conv_layer(self.vis_channel, out_channels[1], 3, padding=1),
+                CoordConv(out_channels[1], out_channels[1], 3, 1)
             )
+
+            self.proj3 = CoordConv(final_channel, out_channels[2])
+            
     
     def forward_visual(self, image):
         if self.use_transformer:
             self.layers = [] 
             image = F.interpolate(image, (self.clip_resolution, self.clip_resolution), mode='bilinear', align_corners=False)
-            x4 = self.clip.encode_image(image)
-            batch, grid = x4.size(0), x4.size(-1)
-            x2 = self.layers[0][1:, :, :]
-            x3 = self.layers[1][1:, :, :]
+            x3 = self.clip.encode_image(image)
+            batch, grid = x3.size(0), x3.size(-1)
+            x1 = self.layers[0][1:, :, :]
+            x2 = self.layers[1][1:, :, :]
+            x1 = x1.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
             x2 = x2.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
-            x3 = x3.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
-            x2 = self.scale1(x2)
-            x3 = self.scale2(x3)
-            return x2, x3, x4
+            x1 = self.proj1(x1)
+            x2 = self.proj2(x2)
+            x3 = self.proj3(x2)
+            return x1, x2, x3
         else:
             return self.clip.encode_image(image)
     
