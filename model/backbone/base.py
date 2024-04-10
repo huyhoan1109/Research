@@ -72,18 +72,21 @@ class Backbone(nn.Module):
 
             self.proj1 = nn.Sequential(
                 nn.Upsample(scale_factor=2, mode='bilinear'),
-                conv_layer(self.vis_channel, out_channels[0], 3, padding=1),
+                conv_layer(self.vis_channel, out_channels[0], 3, 1),
                 nn.Upsample(scale_factor=2, mode='bilinear'),
                 CoordConv(out_channels[0], out_channels[0], 3, 1)
             )
             
             self.proj2 = nn.Sequential(
                 nn.Upsample(scale_factor=2, mode='bilinear'),
-                conv_layer(self.vis_channel, out_channels[1], 3, padding=1),
+                conv_layer(self.vis_channel, out_channels[1], 3, 1),
                 CoordConv(out_channels[1], out_channels[1], 3, 1)
             )
 
-            self.proj3 = CoordConv(final_channel, out_channels[2])
+            self.proj3 = nn.Sequential(
+                conv_layer(self.vis_channel, out_channels[1], 3, 1),
+                CoordConv(out_channels[1], out_channels[1], 3, 1)
+            )
             
     
     def forward_visual(self, image):
