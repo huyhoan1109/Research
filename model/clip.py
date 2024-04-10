@@ -335,20 +335,17 @@ class VisionTransformer(nn.Module):
             x = x + self.positional_embedding.to(x.dtype)
         else:
             x = x + self.resize_pos_embed(grid).to(x.dtype)
+        
         x = self.ln_pre(x)
-
         x = x.permute(1, 0, 2)  # NLD -> LND
-    
         x = self.transformer(x)
-
+        x = x.permute(1, 0, 2)  # LND -> NLD
         # Drop class embedding
         x = self.ln_post(x[:, 1:, :])
-
-        if self.proj is not None:
-            x = x @ self.proj
         
+        if self.proj is not None:
+            x = x @ self.proj  
         x = x.permute(0, 2, 1).reshape(batch, self.output_dim, grid, grid)
-
         return x
 
 

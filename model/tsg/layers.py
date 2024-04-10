@@ -297,8 +297,9 @@ class FPN(nn.Module):
             r_fusion = torch.cat([fq3, fq4, fq5], dim=1)
         else:
             v = imgs
-            f = self.norm_layer(v * state).detach()
-            r_fusion = torch.cat([f, f, f], dim=1)
+            f = self.f1_v_proj(v)
+            f_ = self.norm_layer(f * state).detach()
+            r_fusion = torch.cat([f_, f_, f_], dim=1)
         
         fq = self.aggr(r_fusion)
         fq = self.coordconv(fq)
