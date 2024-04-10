@@ -272,7 +272,7 @@ class FPN(nn.Module):
         # text projection: b, 1024 -> b, 1024
         state = self.txt_proj(state).unsqueeze(-1).unsqueeze(-1)  # b, 1024, 1, 1
         if multi_scale:
-            v, v3, v4, v5 = imgs
+            _, v3, v4, v5 = imgs
             # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
             # fusion 1: b, 1024, 13, 13
             f5 = self.f1_v_proj(v5)
