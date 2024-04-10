@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from model.backbone.clip import build_model, ModifiedResNet
+import torch.nn.functional as F
 
 def conv_layer(in_dim, out_dim, kernel_size=1, padding=0, stride=1):
     return nn.Sequential(
@@ -12,7 +13,8 @@ def conv_layer(in_dim, out_dim, kernel_size=1, padding=0, stride=1):
 def linear_layer(in_dim, out_dim, bias=False):
     return nn.Sequential(
         nn.Linear(in_dim, out_dim, bias),
-        nn.BatchNorm1d(out_dim), nn.ReLU(True)
+        nn.BatchNorm1d(out_dim), 
+        nn.ReLU(True)
     )
 
 class CoordConv(nn.Module):
@@ -60,6 +62,8 @@ class Backbone(nn.Module):
             
             self.vis_channel = 768 
 
+            self.clip_resolution = 224
+
             assert num_layers >= 3 
             self.layer_indexes = [num_layers // 3, num_layers // 2 + 1]
             
@@ -85,6 +89,7 @@ class Backbone(nn.Module):
             return self.clip.encode_image(image) 
         else:
             self.layers = []
+            image = F.interpolate(image, (self.clip_resolution, self.clip_resolution), align_corners=False)
             x4 = self.clip.encode_image(image)
             batch, grid = x4.size(0), x4.size(-1)
             x2 = self.layers[0][1:, :, :]

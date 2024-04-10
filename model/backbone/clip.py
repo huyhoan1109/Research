@@ -312,7 +312,6 @@ class VisionTransformer(nn.Module):
                                bias=False)
         scale = width**-0.5
         self.class_embedding = nn.Parameter(scale * torch.randn(width))
-        self.token_size = input_resolution // patch_size
         self.positional_embedding = nn.Parameter(scale * torch.randn(self.token_size**2 + 1, width))
         self.ln_pre = LayerNorm(width)
 
@@ -320,17 +319,6 @@ class VisionTransformer(nn.Module):
 
         self.ln_post = LayerNorm(width)
         self.proj = nn.Parameter(scale * torch.randn(width, output_dim))
-
-    def resize_pos_embed(self, patch_size):
-        shape = self.positional_embedding[1:].size()
-        a = self.positional_embedding[1:].T.view(1, shape[1], self.token_size, self.token_size)
-        b = F.interpolate(
-            a, 
-            (patch_size, patch_size), 
-            mode='bicubic', 
-            align_corners=False
-        ).squeeze(0).view(shape[1], patch_size * patch_size).T
-        return torch.cat([self.positional_embedding[:1], b])
 
     def forward(self, x: torch.Tensor):
         x = self.conv1(x)  # shape = [*, channel, grid, grid]
@@ -343,10 +331,7 @@ class VisionTransformer(nn.Module):
             , x
         ], dim=1)  # shape = [*, grid ** 2 + 1, channel]
         
-        if grid == self.positional_embedding.size(0):
-            x = x + self.positional_embedding.to(x.dtype)
-        else:
-            x = x + self.resize_pos_embed(grid).to(x.dtype)
+        x = x + self.positional_embedding.to(x.dtype)
         
         x = self.ln_pre(x)
         x = x.permute(1, 0, 2)  # NLD -> LND
