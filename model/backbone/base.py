@@ -89,7 +89,7 @@ class Backbone(nn.Module):
             return self.clip.encode_image(image) 
         else:
             self.layers = []
-            image = F.interpolate(image, (self.clip_resolution, self.clip_resolution), align_corners=False)
+            image = F.interpolate(image, (self.clip_resolution, self.clip_resolution), mode='bilinear', align_corners=False)
             x4 = self.clip.encode_image(image)
             batch, grid = x4.size(0), x4.size(-1)
             x2 = self.layers[0][1:, :, :]
