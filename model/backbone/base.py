@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from model.backbone.clip import build_model, ModifiedResNet
+from model.backbone.clip import build_model, VisionTransformer
 import torch.nn.functional as F
 
 def conv_layer(in_dim, out_dim, kernel_size=1, padding=0, stride=1):
@@ -54,19 +54,16 @@ class Backbone(nn.Module):
         super().__init__()
         weight = torch.jit.load(cfg.clip_pretrain, map_location="cpu").eval()
         self.clip = build_model(weight.state_dict(), cfg.word_len).float()
-        self.multi_scale = isinstance(self.clip, ModifiedResNet)
+        self.use_transformer = isinstance(self.clip.visual, VisionTransformer)
             
-        if not self.multi_scale:
+        if self.use_transformer:
             
             num_layers = self.clip.visual.transformer.layers
-            
-            self.vis_channel = 768 
-
-            self.clip_resolution = 224
-
             assert num_layers >= 3 
-            self.layer_indexes = [num_layers // 3, num_layers // 2 + 1]
             
+            self.layer_indexes = [num_layers // 3, num_layers // 2 + 1]
+            self.vis_channel = 768 
+            self.clip_resolution = 224 
             self.layers = []
 
             for l in self.layer_indexes:
@@ -85,10 +82,8 @@ class Backbone(nn.Module):
             )
     
     def forward_visual(self, image):
-        if self.multi_scale:
-            return self.clip.encode_image(image) 
-        else:
-            self.layers = []
+        if self.use_transformer:
+            self.layers = [] 
             image = F.interpolate(image, (self.clip_resolution, self.clip_resolution), mode='bilinear', align_corners=False)
             x4 = self.clip.encode_image(image)
             batch, grid = x4.size(0), x4.size(-1)
@@ -99,6 +94,8 @@ class Backbone(nn.Module):
             x2 = self.scale1(x2)
             x3 = self.scale2(x3)
             return x2, x3, x4
+        else:
+            return self.clip.encode_image(image)
     
     def forward_text(self, text):
         return self.clip.encode_text(text)
