@@ -269,16 +269,17 @@ class FPN(nn.Module):
         )
 
     def forward(self, imgs, state, multi_scale):
-        # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
-        v, v3, v4, v5 = imgs
-        # fusion 1: b, 1024, 13, 13
         # text projection: b, 1024 -> b, 1024
         state = self.txt_proj(state).unsqueeze(-1).unsqueeze(-1)  # b, 1024, 1, 1
-        f5 = self.f1_v_proj(v5)
-        f4 = self.f2_v_proj(v4)
-        f3 = self.f3_v_proj(v3)
-        f5 = self.norm_layer(f5 * state)
         if multi_scale:
+            v, v3, v4, v5 = imgs
+            # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
+            # fusion 1: b, 1024, 13, 13
+            f5 = self.f1_v_proj(v5)
+            f4 = self.f2_v_proj(v4)
+            f3 = self.f3_v_proj(v3)
+            f5 = self.norm_layer(f5 * state)
+
             # fusion 2: b, 512, 26, 26
             f5_ = F.interpolate(f5, scale_factor=2, mode='bilinear')
             f4 = self.f2_cat(torch.cat([f4, f5_], dim=1))
@@ -293,13 +294,12 @@ class FPN(nn.Module):
             fq3 = self.f4_proj3(f3)
             # query
             fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
+            r_fusion = torch.cat([fq3, fq4, fq5], dim=1)
         else:
-            f4 = self.f2_cat(torch.cat([f4, f5], dim=1))
-            f3 = self.f3_cat(torch.cat([f3, f4], dim=1))
-            fq5 = self.f4_proj5(f5)
-            fq4 = self.f4_proj4(f4)
-            fq3 = self.f4_proj3(f3)
-        r_fusion = torch.cat([fq3, fq4, fq5], dim=1)
+            v = imgs
+            f = self.norm_layer(v * state).detach()
+            r_fusion = torch.cat([f, f, f], dim=1)
+        
         fq = self.aggr(r_fusion)
         fq = self.coordconv(fq)
         # b, 512, 26, 26

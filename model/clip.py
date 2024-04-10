@@ -283,18 +283,8 @@ class Transformer(nn.Module):
             for _ in range(layers)
         ])
 
-    def forward(self, x: torch.Tensor, vit: bool = False, took_feats: int = 4):
-        if vit:
-            assert self.layers >= took_feats
-            last_ids = [i for i in range(self.layers-took_feats, self.layers)]
-            last_feats = []
-            for i in range(self.layers):
-                x = self.resblocks[i](x)
-                if i in last_ids:
-                    last_feats.append(x)
-            return set(last_feats)
-        else: 
-            return self.resblocks(x)
+    def forward(self, x: torch.Tensor):
+        return self.resblocks(x)
 
 
 class VisionTransformer(nn.Module):
@@ -349,26 +339,17 @@ class VisionTransformer(nn.Module):
 
         x = x.permute(1, 0, 2)  # NLD -> LND
     
-        x1, x2, x3, x4 = self.transformer(x, vit=True, took_feats=4)
-        
-        x1 = x1.permute(1, 0, 2)  # LND -> NLD
-        x2 = x2.permute(1, 0, 2)  # LND -> NLD
-        x3 = x3.permute(1, 0, 2)  # LND -> NLD
-        x4 = x4.permute(1, 0, 2)  # LND -> NLD
+        x = self.transformer(x)
 
         # Drop class embedding
-        x1, x2, x3 = x1[:, 1:, :], x2[:, 1:, :], x3[:, 1:, :]
-        x4 = self.ln_post(x4[:, 1:, :])
+        x = self.ln_post(x[:, 1:, :])
 
         if self.proj is not None:
-            x4 = x4 @ self.proj
+            x = x @ self.proj
         
-        x1 = x1.permute(0, 2, 1).reshape(batch, channel, grid, grid)
-        x2 = x2.permute(0, 2, 1).reshape(batch, channel, grid, grid)
-        x3 = x3.permute(0, 2, 1).reshape(batch, channel, grid, grid)
-        x4 = x4.permute(0, 2, 1).reshape(batch, self.output_dim, grid, grid)
+        x = x.permute(0, 2, 1).reshape(batch, self.output_dim, grid, grid)
 
-        return x1, x2, x3, x4
+        return x
 
 
 class CLIP(nn.Module):
@@ -480,7 +461,7 @@ class CLIP(nn.Module):
 
         x = x + self.positional_embedding.type(self.dtype)[:x.size(1)]
         x = x.permute(1, 0, 2)  # NLD -> LND
-        x = self.transformer(x, vit=False)
+        x = self.transformer(x)
         x = x.permute(1, 0, 2)  # LND -> NLD
         x = self.ln_final(x).type(self.dtype)
 
