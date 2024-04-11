@@ -82,7 +82,7 @@ class Backbone(nn.Module):
                 conv_layer(out_channels[0], out_channels[1], 3, 1),
             )
 
-            self.proj3 = AttentionPool2d(self.clip_resolution // 16, out_channels[2] * 2, 32, out_channels[2])
+            self.proj3 = AttentionPool2d(self.clip_resolution // 16, out_channels[2], 32, out_channels[2])
             
     
     def forward_visual(self, image):
