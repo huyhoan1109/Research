@@ -80,7 +80,6 @@ class Backbone(nn.Module):
             self.proj2 = nn.Sequential(
                 nn.AvgPool2d(2),
                 conv_layer(out_channels[0], out_channels[1], 3, 1),
-                nn.BatchNorm2d(out_channels[1])
             )
 
             self.proj3 = AttentionPool2d(self.clip_resolution // 16, out_channels[2] * 2, 32, out_channels[2])
