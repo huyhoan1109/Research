@@ -57,7 +57,6 @@ class Backbone(nn.Module):
         self.use_transformer = isinstance(self.clip.visual, VisionTransformer)
             
         if self.use_transformer:
-            
             num_layers = self.clip.visual.transformer.layers
             final_channel = self.clip.visual.output_dim
             self.vis_channel = self.clip.visual.width 
@@ -101,7 +100,7 @@ class Backbone(nn.Module):
             x2 = x2.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
             x1 = self.proj1(x1)
             x2 = self.proj2(x2)
-            x3 = self.proj3(x2)
+            x3 = self.proj3(x3)
             return x1, x2, x3
         else:
             return self.clip.encode_image(image)
