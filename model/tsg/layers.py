@@ -196,11 +196,12 @@ class TransformerDecoderLayer(nn.Module):
 
 class FPN(nn.Module):
     def __init__(self,
+                 state_dim,
                  in_channels=[512, 1024, 1024],
                  out_channels=[256, 512, 1024]):
         super(FPN, self).__init__()
         # text projection
-        self.txt_proj = linear_layer(in_channels[2], out_channels[2])
+        self.txt_proj = linear_layer(state_dim, out_channels[2])
         # fusion 1: v5 & seq -> f_5: b, 1024, 13, 13
         self.f1_v_proj = conv_layer(in_channels[2], out_channels[2], 1, 0)
         self.norm_layer = nn.Sequential(

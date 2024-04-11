@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from model.backbone.clip import build_model, VisionTransformer, AttentionPool2d
+from model.backbone.clip import build_model, VisionTransformer
 import torch.nn.functional as F
 
 def conv_layer(in_dim, out_dim, kernel_size=1, padding=0, stride=1):
@@ -73,17 +73,21 @@ class Backbone(nn.Module):
 
             self.proj1 = nn.Sequential(
                 conv_layer(final_channel, out_channels[0], 3, 1),
-                nn.Upsample(scale_factor=4, mode='bilinear'),
-                conv_layer(out_channels[0], out_channels[0], 3, 1)
+                nn.Upsample(scale_factor=2, mode='bilinear'),
+                conv_layer(out_channels[0], out_channels[0], 3, 1),
+                nn.Upsample(scale_factor=2, mode='bilinear'),
+                nn.Conv2d(out_channels[0], out_channels[0], 1)
             )
             
             self.proj2 = nn.Sequential(
-                nn.AvgPool2d(2),
                 conv_layer(out_channels[0], out_channels[1], 3, 1),
+                nn.AvgPool2d(2)
             )
 
-            self.proj3 = AttentionPool2d(self.clip_resolution // 16, out_channels[2], 32, out_channels[2])
-            
+            self.proj3 = nn.Sequential(
+                conv_layer(out_channels[1], out_channels[2], 3, 1),
+                nn.AvgPool2d(2)
+            )
     
     def forward_visual(self, image):
         if self.use_transformer:
@@ -103,6 +107,7 @@ class Backbone(nn.Module):
             x1 = self.proj1(x)
             x2 = self.proj2(x1)
             x3 = self.proj3(x2)
+            print(x1.size(), x2.size(), x3.size())
             return x1, x2, x3
         else:
             return self.clip.encode_image(image)

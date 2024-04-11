@@ -14,7 +14,7 @@ class CRIS(nn.Module):
         self.backbone = build_backbone(cfg)
         
         # Multi-Modal fusion
-        self.neck = FPN(in_channels=cfg.fpn_in, out_channels=cfg.fpn_out)
+        self.neck = FPN(cfg.word_dim, in_channels=cfg.fpn_in, out_channels=cfg.fpn_out)
         
         # Decoder
         self.decoder = TransformerDecoder(
