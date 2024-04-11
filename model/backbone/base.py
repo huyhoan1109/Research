@@ -52,8 +52,10 @@ class CoordConv(nn.Module):
 class Backbone(nn.Module):
     def __init__(self, cfg):
         super().__init__()
+        
         weight = torch.jit.load(cfg.clip_pretrain, map_location="cpu").eval()
         self.clip = build_model(weight.state_dict(), cfg.word_len).float()
+
         self.use_transformer = isinstance(self.clip.visual, VisionTransformer)
             
         if self.use_transformer:
@@ -63,7 +65,7 @@ class Backbone(nn.Module):
             assert num_layers >= 3 
             out_channels = cfg.fpn_in
             self.layer_indexes = [num_layers // 3, num_layers // 2 + 1]
-            self.clip_resolution = 224 
+            self.clip_resolution = 384 
             self.layers = []
 
             for l in self.layer_indexes:
@@ -91,7 +93,8 @@ class Backbone(nn.Module):
     def forward_visual(self, image):
         if self.use_transformer:
             self.layers = [] 
-            image = F.interpolate(image, (self.clip_resolution, self.clip_resolution), mode='bilinear', align_corners=False)
+            if image.size(-1) != self.clip_resolution:
+                image = F.interpolate(image, self.clip_resolution, mode='bicubic', align_corners=False)
             x3 = self.clip.encode_image(image)
             batch, grid = x3.size(0), x3.size(-1)
             x1 = self.layers[0][1:, :, :]
@@ -101,6 +104,7 @@ class Backbone(nn.Module):
             x1 = self.proj1(x1)
             x2 = self.proj2(x2)
             x3 = self.proj3(x3)
+            print(x1.size(), x2.size(), x3.size())
             return x1, x2, x3
         else:
             return self.clip.encode_image(image)

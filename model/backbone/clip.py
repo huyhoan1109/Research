@@ -322,6 +322,11 @@ class VisionTransformer(nn.Module):
         self.ln_post = LayerNorm(width)
         self.proj = nn.Parameter(scale * torch.randn(width, output_dim))
 
+    def resize_pos_embed(self, new_shape):
+        a = self.positional_embedding[1:].T.view(1, 768, self.token_size, self.token_size)
+        b = F.interpolate(a, new_shape, mode='bicubic', align_corners=False).squeeze(0).view(768, new_shape*new_shape).T
+        return torch.cat([self.positional_embedding[:1], b])
+
     def forward(self, x: torch.Tensor):
         x = self.conv1(x)  # shape = [*, channel, grid, grid]
         shape = x.size()
@@ -332,6 +337,9 @@ class VisionTransformer(nn.Module):
             self.class_embedding.to(x.dtype) + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device)
             , x
         ], dim=1)  # shape = [*, grid ** 2 + 1, channel]
+        
+        if x.size(1) == self.positional_embedding.size(0):
+            self.positional_embedding = self.resize_pos_embed(grid).to(x.dtype)
         
         x = x + self.positional_embedding.to(x.dtype)
         
