@@ -196,6 +196,7 @@ class ModifiedResNet(nn.Module):
         self.layer4 = self._make_layer(width * 8, layers[3], stride=2)
 
         embed_dim = width * 32  # the ResNet feature dimension
+
         self.attnpool = AttentionPool2d(input_resolution // 32, embed_dim, heads, output_dim)
 
     def _make_layer(self, planes, blocks, stride=1):
@@ -324,7 +325,7 @@ class VisionTransformer(nn.Module):
 
     def resize_pos_embed(self, new_shape):
         a = self.positional_embedding[1:].T.view(1, 768, self.token_size, self.token_size)
-        b = F.interpolate(a, new_shape, mode='bicubic', align_corners=False).squeeze(0).view(768, new_shape*new_shape).T
+        b = F.interpolate(a, new_shape, mode='bicubic', align_corners=False).squeeze(0).view(768, new_shape ** 2).T
         return torch.cat([self.positional_embedding[:1], b])
 
     def forward(self, x: torch.Tensor):
@@ -338,20 +339,19 @@ class VisionTransformer(nn.Module):
             , x
         ], dim=1)  # shape = [*, grid ** 2 + 1, channel]
         
-        if x.size(1) == self.positional_embedding.size(0):
-            self.positional_embedding = self.resize_pos_embed(grid).to(x.dtype)
-        
-        x = x + self.positional_embedding.to(x.dtype)
+        if x.size(1) != self.positional_embedding.size(0):
+            x = x + self.resize_pos_embed(grid).to(x.dtype)
+        else:
+            x = x + self.positional_embedding.to(x.dtype)
         
         x = self.ln_pre(x)
-        x = x.permute(1, 0, 2)  # NLD -> LND
-        
+        x = x.permute(1, 0, 2)  # NLD -> LND        
         x = self.transformer(x)
         x = x.permute(1, 0, 2)  # LND -> NLD
         
         # Drop class embedding
         x = self.ln_post(x[:, 1:, :])
-        
+
         if self.proj is not None:
             x = x @ self.proj  
 

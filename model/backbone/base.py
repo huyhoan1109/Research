@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from model.backbone.clip import build_model, VisionTransformer
+from model.backbone.clip import build_model, VisionTransformer, AttentionPool2d
 import torch.nn.functional as F
 
 def conv_layer(in_dim, out_dim, kernel_size=1, padding=0, stride=1):
@@ -59,52 +59,51 @@ class Backbone(nn.Module):
         self.use_transformer = isinstance(self.clip.visual, VisionTransformer)
             
         if self.use_transformer:
-            num_layers = self.clip.visual.transformer.layers
             final_channel = self.clip.visual.output_dim
-            self.vis_channel = self.clip.visual.width 
-            assert num_layers >= 3 
             out_channels = cfg.fpn_in
-            self.layer_indexes = [num_layers // 3, num_layers // 2 + 1]
-            self.clip_resolution = 384 
-            self.layers = []
-
-            for l in self.layer_indexes:
-                self.clip.visual.transformer.resblocks[l].register_forward_hook(lambda m, _, o: self.layers.append(o))
+            self.clip_resolution = 256 
+            
+            # num_layers = self.clip.visual.transformer.layers
+            # assert num_layers >= 3 
+            # self.vis_channel = self.clip.visual.width 
+            # self.layer_indexes = [num_layers // 4, num_layers // 2 + 1]
+            # self.layers = []
+            # for l in self.layer_indexes:
+            #     self.clip.visual.transformer.resblocks[l].register_forward_hook(lambda m, _, o: self.layers.append(o))
 
             self.proj1 = nn.Sequential(
-                nn.Upsample(scale_factor=2, mode='bilinear'),
-                conv_layer(self.vis_channel, out_channels[0], 3, 1),
-                nn.Upsample(scale_factor=2, mode='bilinear'),
-                CoordConv(out_channels[0], out_channels[0], 3, 1)
+                conv_layer(final_channel, out_channels[0], 3, 1),
+                nn.Upsample(scale_factor=4, mode='bilinear'),
+                conv_layer(out_channels[0], out_channels[0], 3, 1)
             )
             
             self.proj2 = nn.Sequential(
-                nn.Upsample(scale_factor=2, mode='bilinear'),
-                conv_layer(self.vis_channel, out_channels[1], 3, 1),
-                CoordConv(out_channels[1], out_channels[1], 3, 1)
+                nn.AvgPool2d(2),
+                conv_layer(out_channels[0], out_channels[1], 3, 1),
+                nn.BatchNorm2d(out_channels[1])
             )
 
-            self.proj3 = nn.Sequential(
-                conv_layer(final_channel, out_channels[2], 3, 1),
-                CoordConv(out_channels[2], out_channels[2], 3, 1)
-            )
+            self.proj3 = AttentionPool2d(self.clip_resolution // 16, out_channels[2] * 2, 32, out_channels[2])
             
     
     def forward_visual(self, image):
         if self.use_transformer:
-            self.layers = [] 
+            # self.layers = [] 
             if image.size(-1) != self.clip_resolution:
                 image = F.interpolate(image, self.clip_resolution, mode='bicubic', align_corners=False)
-            x3 = self.clip.encode_image(image)
-            batch, grid = x3.size(0), x3.size(-1)
-            x1 = self.layers[0][1:, :, :]
-            x2 = self.layers[1][1:, :, :]
-            x1 = x1.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
-            x2 = x2.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
-            x1 = self.proj1(x1)
-            x2 = self.proj2(x2)
-            x3 = self.proj3(x3)
-            print(x1.size(), x2.size(), x3.size())
+            # x3 = self.clip.encode_image(image)
+            # batch, grid = x3.size(0), x3.size(-1)
+            # x1 = self.layers[0][1:, :, :]
+            # x2 = self.layers[1][1:, :, :]
+            # x1 = x1.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
+            # x2 = x2.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
+            # x1 = self.proj1(x1)
+            # x2 = self.proj2(x2)
+            # x3 = self.proj3(x3)
+            x = self.clip.encode_image(image)
+            x1 = self.proj1(x)
+            x2 = self.proj2(x1)
+            x3 = self.proj3(x2)
             return x1, x2, x3
         else:
             return self.clip.encode_image(image)
