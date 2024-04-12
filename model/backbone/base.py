@@ -107,7 +107,6 @@ class Backbone(nn.Module):
             x1 = self.proj1(x)
             x2 = self.proj2(x1)
             x3 = self.proj3(x2)
-            print(x1.size(), x2.size(), x3.size())
             return x1, x2, x3
         else:
             return self.clip.encode_image(image)
