@@ -61,7 +61,7 @@ class Backbone(nn.Module):
         if self.use_transformer:
             final_channel = self.clip.visual.output_dim
             out_channels = cfg.fpn_in
-            self.clip_resolution = 256 
+            self.clip_resolution = 224 
             
             # num_layers = self.clip.visual.transformer.layers
             # assert num_layers >= 3 
