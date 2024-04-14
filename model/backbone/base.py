@@ -72,20 +72,20 @@ class Backbone(nn.Module):
             #     self.clip.visual.transformer.resblocks[l].register_forward_hook(lambda m, _, o: self.layers.append(o))
 
             self.proj1 = nn.Sequential(
-                conv_layer(final_channel, out_channels[0], 3, 1),
+                conv_layer(final_channel, out_channels[0], 1, 0),
                 nn.Upsample(scale_factor=2, mode='bilinear'),
-                conv_layer(out_channels[0], out_channels[0], 3, 1),
+                conv_layer(out_channels[0], out_channels[0], 1, 0),
                 nn.Upsample(scale_factor=2, mode='bilinear'),
-                nn.Conv2d(out_channels[0], out_channels[0], 1)
+                nn.Conv2d(out_channels[0], out_channels[0], 1, 0)
             )
             
             self.proj2 = nn.Sequential(
-                conv_layer(out_channels[0], out_channels[1], 3, 1),
+                conv_layer(out_channels[0], out_channels[1], 1, 0),
                 nn.AvgPool2d(2)
             )
 
             self.proj3 = nn.Sequential(
-                conv_layer(out_channels[1], out_channels[2], 3, 1),
+                conv_layer(out_channels[1], out_channels[2], 1, 0),
                 nn.AvgPool2d(2)
             )
     
