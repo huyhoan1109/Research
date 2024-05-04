@@ -16,10 +16,12 @@ class TransformerDecoder(nn.Module):
                  return_intermediate=False):
         super().__init__()
         self.layers = nn.ModuleList([
-            TransformerDecoderLayer(d_model=d_model,
-                                    nhead=nhead,
-                                    dim_feedforward=dim_ffn,
-                                    dropout=dropout) for _ in range(num_layers)
+            TransformerDecoderLayer(
+                d_model=d_model,
+                nhead=nhead,
+                dim_feedforward=dim_ffn,
+                dropout=dropout
+            ) for _ in range(num_layers)
         ])
         self.num_layers = num_layers
         self.norm = nn.LayerNorm(d_model)
@@ -33,12 +35,10 @@ class TransformerDecoder(nn.Module):
         :return: length*d_model position matrix
         """
         if d_model % 2 != 0:
-            raise ValueError("Cannot use sin/cos positional encoding with "
-                             "odd dim (got dim={:d})".format(d_model))
+            raise ValueError("Cannot use sin/cos positional encoding with odd dim (got dim={:d})".format(d_model))
         pe = torch.zeros(length, d_model)
         position = torch.arange(0, length).unsqueeze(1)
-        div_term = torch.exp((torch.arange(0, d_model, 2, dtype=torch.float) *
-                              -(math.log(10000.0) / d_model)))
+        div_term = torch.exp((torch.arange(0, d_model, 2, dtype=torch.float) * -(math.log(10000.0) / d_model)))
         pe[:, 0::2] = torch.sin(position.float() * div_term)
         pe[:, 1::2] = torch.cos(position.float() * div_term)
 
@@ -53,8 +53,7 @@ class TransformerDecoder(nn.Module):
         :return: d_model*height*width position matrix
         """
         if d_model % 4 != 0:
-            raise ValueError("Cannot use sin/cos positional encoding with "
-                             "odd dimension (got dim={:d})".format(d_model))
+            raise ValueError("Cannot use sin/cos positional encoding with odd dimension (got dim={:d})".format(d_model))
         pe = torch.zeros(d_model, height, width)
         # Each dimension use half of d_model
         d_model = int(d_model / 2)
@@ -119,18 +118,16 @@ class TransformerDecoderLayer(nn.Module):
         # Normalization Layer
         self.vis_norm = nn.LayerNorm(d_model)
         self.vis_txt_norm = nn.LayerNorm(d_model)
+        
         # Attention Layer
         self.vis_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
-        self.vis_txt_attn = nn.MultiheadAttention(d_model,
-                                                    nhead,
-                                                    dropout=dropout,
-                                                    kdim=d_model,
-                                                    vdim=d_model)
+        self.vis_txt_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, kdim=d_model, vdim=d_model)
 
         # FFN
         self.ffn = nn.Sequential(
             nn.Linear(d_model, dim_feedforward),
-            nn.ReLU(True), nn.Dropout(dropout),
+            nn.ReLU(True), 
+            nn.Dropout(dropout),
             nn.LayerNorm(dim_feedforward),
             nn.Linear(dim_feedforward, d_model)
         )
@@ -156,16 +153,18 @@ class TransformerDecoderLayer(nn.Module):
         # Self-Attention
         vis2 = self.norm1(vis)
         q = k = self.with_pos_embed(vis2, vis_pos)
-        vis2 = self.vis_attn(q, k, value=vis2)[0]
+        vis2, _ = self.vis_attn(q, k, value=vis2)
         vis2 = self.vis_norm(vis2)
         vis = vis + self.dropout1(vis2)
         
         # Cross-Attention
         vis2 = self.norm2(vis)
-        vis2 = self.vis_txt_attn(query=self.with_pos_embed(vis2, vis_pos),
-                                   key=self.with_pos_embed(txt, txt_pos),
-                                   value=txt,
-                                   key_padding_mask=pad_mask)[0]
+        vis2, _ = self.vis_txt_attn(
+            query=self.with_pos_embed(vis2, vis_pos),
+            key=self.with_pos_embed(txt, txt_pos),
+            value=txt,
+            key_padding_mask=pad_mask
+        )
         vis2 = self.vis_txt_norm(vis2)
         vis = vis + self.dropout2(vis2)
         

@@ -38,12 +38,10 @@ class TransformerDecoder(nn.Module):
         :return: length*d_model position matrix
         """
         if d_model % 2 != 0:
-            raise ValueError("Cannot use sin/cos positional encoding with "
-                             "odd dim (got dim={:d})".format(d_model))
+            raise ValueError("Cannot use sin/cos positional encoding with odd dim (got dim={:d})".format(d_model))
         pe = torch.zeros(length, d_model)
         position = torch.arange(0, length).unsqueeze(1)
-        div_term = torch.exp((torch.arange(0, d_model, 2, dtype=torch.float) *
-                              -(math.log(10000.0) / d_model)))
+        div_term = torch.exp((torch.arange(0, d_model, 2, dtype=torch.float) * -(math.log(10000.0) / d_model)))
         pe[:, 0::2] = torch.sin(position.float() * div_term)
         pe[:, 1::2] = torch.cos(position.float() * div_term)
 
@@ -58,8 +56,7 @@ class TransformerDecoder(nn.Module):
         :return: d_model*height*width position matrix
         """
         if d_model % 4 != 0:
-            raise ValueError("Cannot use sin/cos positional encoding with "
-                             "odd dimension (got dim={:d})".format(d_model))
+            raise ValueError("Cannot use sin/cos positional encoding with odd dimension (got dim={:d})".format(d_model))
         pe = torch.zeros(d_model, height, width)
         # Each dimension use half of d_model
         d_model = int(d_model / 2)
@@ -129,6 +126,7 @@ class TransformerDecoderLayer(nn.Module):
         # Normalization Layer
         self.vis_norm = nn.LayerNorm(d_model)
         self.vis_txt_norm = nn.LayerNorm(d_model)
+        
         # Attention Layer
         self.vis_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         self.vis_txt_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, kdim=d_model, vdim=d_model)
