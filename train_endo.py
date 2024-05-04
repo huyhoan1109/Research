@@ -5,6 +5,7 @@ import shutil
 import sys
 import time
 import warnings
+import wandb
 from functools import partial
 
 import cv2
@@ -25,6 +26,10 @@ from utils.misc import WandbLogger
 from engine.engine_endo import train, validate
 from model import build_segmenter
 from utils.misc import (init_random_seed, set_random_seed, setup_logger, worker_init_fn)
+
+from dotenv import dotenv_values
+
+env_var = dotenv_values(".env")
 
 warnings.filterwarnings("ignore")
 cv2.setNumThreads(0)
@@ -92,6 +97,7 @@ def main_worker(gpu, args):
 
     # wandb
     if args.rank == 0:
+        wandb.login(key=env_var['API_KEY'])
         wlogger = WandbLogger(args)
         wlogger.init_logger(
             project="CRIS",
