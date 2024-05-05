@@ -75,16 +75,16 @@ def main():
     model = torch.nn.DataParallel(model).cuda()
     logger.info(model)
 
-    args.model_dir = os.path.join(args.output_dir, "best_model.pth")
-    if os.path.isfile(args.model_dir):
-        logger.info("=> loading checkpoint '{}'".format(args.model_dir))
-        checkpoint = torch.load(args.model_dir)
+    args.resume = os.path.join(args.resume)
+    if os.path.isfile(args.resume):
+        logger.info("=> loading checkpoint '{}'".format(args.resume))
+        checkpoint = torch.load(args.resume)
         model.load_state_dict(checkpoint['state_dict'], strict=True)
-        logger.info("=> loaded checkpoint '{}'".format(args.model_dir))
+        logger.info("=> loaded checkpoint '{}'".format(args.resume))
     else:
         raise ValueError(
             "=> resume failed! no checkpoint found at '{}'. Please check args.resume again!"
-            .format(args.model_dir))
+            .format(args.resume))
 
     # inference
     inference(test_loader, model, args)
