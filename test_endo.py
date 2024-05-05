@@ -24,6 +24,13 @@ def get_parser():
                         default='path to xxx.yaml',
                         type=str,
                         help='config file')
+    parser.add_argument('--tsg',
+                        type=bool,
+                        default=False,
+                        help='add transformer scale gate.')
+    parser.add_argument('--root_data',
+                        type=str,
+                        help='load root path for endoscopy data')
     parser.add_argument('--opts',
                         default=None,
                         nargs=argparse.REMAINDER,
@@ -33,6 +40,8 @@ def get_parser():
     cfg = config.load_cfg_from_cfg_file(args.config)
     if args.opts is not None:
         cfg = config.merge_cfg_from_list(cfg, args.opts)
+    cfg.__setattr__('tsg', args.tsg)
+    cfg.__setattr__('root_data', args.root_data)
     return cfg
 
 

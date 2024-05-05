@@ -19,12 +19,15 @@ cv2.setNumThreads(0)
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(
-        description='Pytorch Referring Expression Segmentation')
+    parser = argparse.ArgumentParser(description='Pytorch Referring Expression Segmentation')
     parser.add_argument('--config',
                         default='path to xxx.yaml',
                         type=str,
                         help='config file')
+    parser.add_argument('--tsg',
+                        type=int,
+                        default=0,
+                        help='add transformer scale gate.')
     parser.add_argument('--opts',
                         default=None,
                         nargs=argparse.REMAINDER,
@@ -34,6 +37,7 @@ def get_parser():
     cfg = config.load_cfg_from_cfg_file(args.config)
     if args.opts is not None:
         cfg = config.merge_cfg_from_list(cfg, args.opts)
+    cfg.__setattr__('tsg', args.tsg)
     return cfg
 
 
