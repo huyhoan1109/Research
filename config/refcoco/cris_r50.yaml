@@ -60,4 +60,4 @@ Distributed:
 TEST:
   test_split: val-test
   test_lmdb: datasets/lmdb/refcoco/val.lmdb
-  visualize: False
+  visualize: True

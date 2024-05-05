@@ -60,4 +60,4 @@ Distributed:
 TEST:
   test_split: val-test
   test_lmdb: /kaggle/input/refcoco-plus/lmdb/refcoco+/val.lmdb
-  visualize: False
+  visualize: True

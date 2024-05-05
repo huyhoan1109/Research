@@ -60,4 +60,4 @@ Distributed:
 TEST:
   test_split: testB
   test_lmdb: datasets/lmdb/refcoco+/testB.lmdb
-  visualize: False
+  visualize: True
