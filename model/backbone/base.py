@@ -59,57 +59,27 @@ class Backbone(nn.Module):
         self.use_transformer = isinstance(self.clip.visual, VisionTransformer)
             
         if self.use_transformer:
-            final_channel = self.clip.visual.output_dim
-            out_channels = cfg.fpn_in
-            self.clip_resolution = 224 
-            
-            # num_layers = self.clip.visual.transformer.layers
-            # assert num_layers >= 3 
-            # self.vis_channel = self.clip.visual.width 
-            # self.layer_indexes = [num_layers // 4, num_layers // 2 + 1]
-            # self.layers = []
-            # for l in self.layer_indexes:
-            #     self.clip.visual.transformer.resblocks[l].register_forward_hook(lambda m, _, o: self.layers.append(o))
-
-            self.proj1 = nn.Sequential(
-                conv_layer(final_channel, out_channels[0], 1, 0),
-                nn.Upsample(scale_factor=2, mode='bilinear'),
-                conv_layer(out_channels[0], out_channels[0], 1, 0),
-                nn.Upsample(scale_factor=2, mode='bilinear'),
-                nn.Conv2d(out_channels[0], out_channels[0], 1, 0)
-            )
-            
-            self.proj2 = nn.Sequential(
-                conv_layer(out_channels[0], out_channels[1], 1, 0),
-                nn.AvgPool2d(2)
-            )
-
-            self.proj3 = nn.Sequential(
-                conv_layer(out_channels[1], out_channels[2], 1, 0),
-                nn.AvgPool2d(2)
-            )
+            num_layers = self.clip.visual.transformer.layers
+            assert num_layers >= 3 
+            self.vis_channel = self.clip.visual.width 
+            self.layer_indexes = [num_layers // 4, num_layers // 2 + 1]
+            self.layers = []
+            for l in self.layer_indexes:
+                self.clip.visual.transformer.resblocks[l].register_forward_hook(lambda m, _, o: self.layers.append(o))
     
     def forward_visual(self, image):
+        x = self.clip.encode_image(image)
         if self.use_transformer:
-            # self.layers = [] 
-            if image.size(-1) != self.clip_resolution:
-                image = F.interpolate(image, self.clip_resolution, mode='bicubic', align_corners=False)
-            # x3 = self.clip.encode_image(image)
-            # batch, grid = x3.size(0), x3.size(-1)
-            # x1 = self.layers[0][1:, :, :]
-            # x2 = self.layers[1][1:, :, :]
-            # x1 = x1.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
-            # x2 = x2.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
-            # x1 = self.proj1(x1)
-            # x2 = self.proj2(x2)
-            # x3 = self.proj3(x3)
+            self.layers = [] 
             x = self.clip.encode_image(image)
-            x1 = self.proj1(x)
-            x2 = self.proj2(x1)
-            x3 = self.proj3(x2)
-            return x1, x2, x3
+            batch, grid = x.size(0), x.size(-1)
+            x1 = self.layers[0][1:, :, :]
+            x2 = self.layers[1][1:, :, :]
+            x1 = x1.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
+            x2 = x2.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
+            return x1, x2, x
         else:
-            return self.clip.encode_image(image)
+            return x
     
     def forward_text(self, text):
         return self.clip.encode_text(text)

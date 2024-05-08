@@ -16,7 +16,7 @@ TRAIN:
   smooth: 1e-7
   # Base Arch
   clip_pretrain: /kaggle/input/pretrain/RN101.pt
-  input_size: 416
+  input_size: 224
   word_len: 17
   word_dim: 512
   vis_dim: 512

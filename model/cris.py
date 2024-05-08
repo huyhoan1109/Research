@@ -52,7 +52,7 @@ class CRIS(nn.Module):
         word, state = self.backbone.forward_text(word)
          
         # fusion: b, 512, 26, 26 
-        fusion = self.neck(vis, state)
+        fusion = self.neck(vis, state, self.backbone.use_transformer)
         b, _, h, w = fusion.size()
         out = self.decoder(fusion, word, pad_mask)
         out = out.reshape(b, h, w, -1).permute(0, 3, 1, 2)

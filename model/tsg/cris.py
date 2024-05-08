@@ -53,7 +53,7 @@ class CRIS(nn.Module):
         word, state = self.backbone.forward_text(word) # text embeddings, text features
         
         # fusion = fq, r_fusion
-        fusion = self.neck(vis, state)
+        fusion = self.neck(vis, state, self.backbone.use_transformer)
         
         b, _, h, w = fusion[0].size()
         out = self.decoder(fusion, word, pad_mask)
