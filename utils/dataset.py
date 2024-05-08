@@ -51,8 +51,7 @@ def loads_pyarrow(buf):
 
 
 class RefDataset(Dataset):
-    def __init__(self, lmdb_dir, mask_dir, dataset, split, mode, input_size,
-                 word_length):
+    def __init__(self, lmdb_dir, mask_dir, dataset, split, mode, input_size, word_length):
         super(RefDataset, self).__init__()
         self.lmdb_dir = lmdb_dir
         self.mask_dir = mask_dir
@@ -61,10 +60,8 @@ class RefDataset(Dataset):
         self.mode = mode
         self.input_size = (input_size, input_size)
         self.word_length = word_length
-        self.mean = torch.tensor([0.48145466, 0.4578275,
-                                  0.40821073]).reshape(3, 1, 1)
-        self.std = torch.tensor([0.26862954, 0.26130258,
-                                 0.27577711]).reshape(3, 1, 1)
+        self.mean = torch.tensor([0.48145466, 0.4578275, 0.40821073]).reshape(3, 1, 1)
+        self.std = torch.tensor([0.26862954, 0.26130258, 0.27577711]).reshape(3, 1, 1)
         self.length = info[dataset][split]
         self.env = None
         self.tokenizer = Tokenizer()

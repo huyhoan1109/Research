@@ -20,7 +20,7 @@ TRAIN:
   word_len: 22
   word_dim: 512
   vis_dim: 512
-  fpn_in: [768, 768, 768]
+  fpn_in: [768, 768, 512]
   fpn_out: [256, 512, 1024]
   sync_bn: True
   # Decoder
@@ -48,7 +48,6 @@ TRAIN:
   exp_name: CRIS_VIT16
   output_folder: exp/refcocog_g
   save_freq: 1
-  weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
 Distributed:

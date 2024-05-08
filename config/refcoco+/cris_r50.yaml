@@ -48,7 +48,6 @@ TRAIN:
   exp_name: CRIS_R50
   output_folder: exp/refcoco+
   save_freq: 1
-  weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
 Distributed:
