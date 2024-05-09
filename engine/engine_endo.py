@@ -105,7 +105,6 @@ def validate(val_loader, model, epoch, args):
                                   align_corners=True).squeeze(1)
 
         for pred, mask in zip(preds, target):
-            pred = pred.cpu().numpy()
             pred = np.array(pred > 0.35)
             mask = np.array(mask)
             # iou

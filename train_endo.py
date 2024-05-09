@@ -134,13 +134,15 @@ def main_worker(gpu, args):
         root_path=args.root_data,
         input_size=args.input_size,
         word_length=args.word_len,
-        split='train'
+        split='train',
+        device='cuda:'+args.gpu
     )
     val_data = EndosDataset(
         root_path=args.root_data,
         input_size=args.input_size,
         word_length=args.word_len,
-        split='test'
+        split='test',
+        device='cuda:'+args.gpu
     )
 
     # build dataloader
