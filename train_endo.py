@@ -5,6 +5,7 @@ import shutil
 import sys
 import time
 import warnings
+import wandb
 from functools import partial
 
 import cv2
@@ -26,6 +27,10 @@ from engine.engine_endo import train, validate
 from model import build_segmenter
 from utils.misc import (init_random_seed, set_random_seed, setup_logger, worker_init_fn)
 
+from dotenv import dotenv_values
+
+env_var = dotenv_values(".env")
+
 warnings.filterwarnings("ignore")
 cv2.setNumThreads(0)
 
@@ -37,8 +42,8 @@ def get_parser():
                         type=str,
                         help='config file')
     parser.add_argument('--tsg',
-                        type=bool,
-                        default=False,
+                        type=int,
+                        default=0,
                         help='add transformer scale gate.')
     parser.add_argument('--root_data',
                         type=str,
@@ -92,6 +97,7 @@ def main_worker(gpu, args):
 
     # wandb
     if args.rank == 0:
+        wandb.login(key=env_var['API_KEY'])
         wlogger = WandbLogger(args)
         wlogger.init_logger(
             project="CRIS",
@@ -128,13 +134,13 @@ def main_worker(gpu, args):
         root_path=args.root_data,
         input_size=args.input_size,
         word_length=args.word_len,
-        split='train'
+        split='train',
     )
     val_data = EndosDataset(
         root_path=args.root_data,
         input_size=args.input_size,
         word_length=args.word_len,
-        split='val'
+        split='test',
     )
 
     # build dataloader
@@ -142,8 +148,7 @@ def main_worker(gpu, args):
                       num_workers=args.workers,
                       rank=args.rank,
                       seed=args.manual_seed)
-    train_sampler = data.distributed.DistributedSampler(train_data,
-                                                        shuffle=True)
+    train_sampler = data.distributed.DistributedSampler(train_data, shuffle=True)
     val_sampler = data.distributed.DistributedSampler(val_data, shuffle=False)
     train_loader = data.DataLoader(train_data,
                                    batch_size=args.batch_size,

@@ -32,8 +32,7 @@ cv2.setNumThreads(0)
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(
-        description='Pytorch Referring Expression Segmentation')
+    parser = argparse.ArgumentParser(description='Pytorch Referring Expression Segmentation')
     parser.add_argument('--config',
                         default='path to xxx.yaml',
                         type=str,

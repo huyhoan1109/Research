@@ -2,21 +2,19 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.clip import build_model, ModifiedResNet
+from model.backbone.base import build_backbone
 from loss import CELoss, FocalLoss, DiceLoss
 
-from .layers import FPN, Projector, TransformerDecoder
+from model.tsg.layers import FPN, Projector, TransformerDecoder
 
 class CRIS(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         # Vision & Text Encoder
-        clip_model = torch.jit.load(cfg.clip_pretrain,
-                                    map_location="cpu").eval()
-        self.backbone = build_model(clip_model.state_dict(), cfg.word_len).float()
+        self.backbone = build_backbone(cfg)
         
         # Multi-Modal fusion
-        self.neck = FPN(in_channels=cfg.fpn_in, out_channels=cfg.fpn_out)
+        self.neck = FPN(cfg.word_dim, in_channels=cfg.fpn_in, out_channels=cfg.fpn_out)
         
         # Decoder
         self.decoder = TransformerDecoder(
@@ -48,17 +46,14 @@ class CRIS(nn.Module):
         # padding mask used in decoder
         pad_mask = torch.zeros_like(word).masked_fill_(word == 0, 1).bool()
         
-        # vis: x1, x2, x3, x4
+        # vis: x2, x3, x4
         # word: b, length, 1024
         # state: b, 1024
-        vis = self.backbone.encode_image(img)
-        word, state = self.backbone.encode_text(word) # text embeddings, text features
+        vis = self.backbone.forward_visual(img)
+        word, state = self.backbone.forward_text(word) # text embeddings, text features
         
         # fusion = fq, r_fusion
-        if isinstance(self.backbone.visual, ModifiedResNet):
-            fusion = self.neck(vis, state, True)
-        else:
-            fusion = self.neck(vis, state, False)
+        fusion = self.neck(vis, state, self.backbone.use_transformer)
         
         b, _, h, w = fusion[0].size()
         out = self.decoder(fusion, word, pad_mask)

@@ -4,49 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-def conv_layer(in_dim, out_dim, kernel_size=1, padding=0, stride=1):
-    return nn.Sequential(
-        nn.Conv2d(in_dim, out_dim, kernel_size, stride, padding, bias=False),
-        nn.BatchNorm2d(out_dim), 
-        nn.ReLU(True)
-    )
-
-
-def linear_layer(in_dim, out_dim, bias=False):
-    return nn.Sequential(
-        nn.Linear(in_dim, out_dim, bias),
-        nn.BatchNorm1d(out_dim), 
-        nn.ReLU(True)
-    )
-
-
-class CoordConv(nn.Module):
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 kernel_size=3,
-                 padding=1,
-                 stride=1):
-        super().__init__()
-        self.conv1 = conv_layer(in_channels + 2, out_channels, kernel_size,
-                                padding, stride)
-
-    def add_coord(self, input):
-        b, _, h, w = input.size()
-        x_range = torch.linspace(-1, 1, w, device=input.device)
-        y_range = torch.linspace(-1, 1, h, device=input.device)
-        y, x = torch.meshgrid(y_range, x_range)
-        y = y.expand([b, 1, -1, -1])
-        x = x.expand([b, 1, -1, -1])
-        coord_feat = torch.cat([x, y], 1)
-        input = torch.cat([input, coord_feat], 1)
-        return input
-
-    def forward(self, x):
-        x = self.add_coord(x)
-        x = self.conv1(x)
-        return x
+from model.backbone.base import conv_layer, linear_layer, CoordConv
 
 class TransformerDecoder(nn.Module):
     def __init__(self,
@@ -80,12 +38,10 @@ class TransformerDecoder(nn.Module):
         :return: length*d_model position matrix
         """
         if d_model % 2 != 0:
-            raise ValueError("Cannot use sin/cos positional encoding with "
-                             "odd dim (got dim={:d})".format(d_model))
+            raise ValueError("Cannot use sin/cos positional encoding with odd dim (got dim={:d})".format(d_model))
         pe = torch.zeros(length, d_model)
         position = torch.arange(0, length).unsqueeze(1)
-        div_term = torch.exp((torch.arange(0, d_model, 2, dtype=torch.float) *
-                              -(math.log(10000.0) / d_model)))
+        div_term = torch.exp((torch.arange(0, d_model, 2, dtype=torch.float) * -(math.log(10000.0) / d_model)))
         pe[:, 0::2] = torch.sin(position.float() * div_term)
         pe[:, 1::2] = torch.cos(position.float() * div_term)
 
@@ -100,8 +56,7 @@ class TransformerDecoder(nn.Module):
         :return: d_model*height*width position matrix
         """
         if d_model % 4 != 0:
-            raise ValueError("Cannot use sin/cos positional encoding with "
-                             "odd dimension (got dim={:d})".format(d_model))
+            raise ValueError("Cannot use sin/cos positional encoding with odd dimension (got dim={:d})".format(d_model))
         pe = torch.zeros(d_model, height, width)
         # Each dimension use half of d_model
         d_model = int(d_model / 2)
@@ -171,6 +126,7 @@ class TransformerDecoderLayer(nn.Module):
         # Normalization Layer
         self.vis_norm = nn.LayerNorm(d_model)
         self.vis_txt_norm = nn.LayerNorm(d_model)
+        
         # Attention Layer
         self.vis_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         self.vis_txt_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, kdim=d_model, vdim=d_model)
@@ -238,11 +194,12 @@ class TransformerDecoderLayer(nn.Module):
 
 class FPN(nn.Module):
     def __init__(self,
-                 in_channels=[512, 1024, 1024],
-                 out_channels=[256, 512, 1024]):
+                 state_dim,
+                 in_channels,
+                 out_channels):
         super(FPN, self).__init__()
         # text projection
-        self.txt_proj = linear_layer(in_channels[2], out_channels[2])
+        self.txt_proj = linear_layer(state_dim, out_channels[2])
         # fusion 1: v5 & seq -> f_5: b, 1024, 13, 13
         self.f1_v_proj = conv_layer(in_channels[2], out_channels[2], 1, 0)
         self.norm_layer = nn.Sequential(
@@ -268,18 +225,34 @@ class FPN(nn.Module):
             conv_layer(out_channels[1], out_channels[1], 3, 1)
         )
 
-    def forward(self, imgs, state, multi_scale):
+    def forward(self, imgs, state, use_transformer=False):
         # text projection: b, 1024 -> b, 1024
         state = self.txt_proj(state).unsqueeze(-1).unsqueeze(-1)  # b, 1024, 1, 1
-        if multi_scale:
-            _, v3, v4, v5 = imgs
-            # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
-            # fusion 1: b, 1024, 13, 13
-            f5 = self.f1_v_proj(v5)
-            f4 = self.f2_v_proj(v4)
-            f3 = self.f3_v_proj(v3)
-            f5 = self.norm_layer(f5 * state)
+        
+        # v3, v4, v5: 256, 52, 52 / 512, 26, 26 / 1024, 13, 13
+        v3, v4, v5 = imgs
 
+        # first projection
+        f5 = self.f1_v_proj(v5)
+        f4 = self.f2_v_proj(v4)
+        f3 = self.f3_v_proj(v3)
+
+        # fusion 1
+        f5 = self.norm_layer(f5 * state)
+
+        # check transformer
+        if use_transformer:
+            # fusion 2
+            f4 = self.f2_cat(torch.cat([f4, f5], dim=1))
+
+            # fusion 3: b, 256, 26, 26
+            f3 = self.f3_cat(torch.cat([f3, f4], dim=1))
+
+            # middle projection
+            fq5 = self.f4_proj5(f5)
+            fq4 = self.f4_proj4(f4)
+            fq3 = self.f4_proj3(f3)
+        else:
             # fusion 2: b, 512, 26, 26
             f5_ = F.interpolate(f5, scale_factor=2, mode='bilinear')
             f4 = self.f2_cat(torch.cat([f4, f5_], dim=1))
@@ -288,22 +261,22 @@ class FPN(nn.Module):
             f3 = F.avg_pool2d(f3, 2, 2)
             f3 = self.f3_cat(torch.cat([f3, f4], dim=1))
             
-            # fusion 4: b, 512, 13, 13 / b, 512, 26, 26 / b, 512, 26, 26
+            # middle projection
             fq5 = self.f4_proj5(f5)
             fq4 = self.f4_proj4(f4)
             fq3 = self.f4_proj3(f3)
-            # query
+            
+            # interpolate
             fq5 = F.interpolate(fq5, scale_factor=2, mode='bilinear')
-            r_fusion = torch.cat([fq3, fq4, fq5], dim=1)
-        else:
-            v = imgs
-            f = self.f1_v_proj(v)
-            f_ = self.norm_layer(f * state).detach()
-            r_fusion = torch.cat([f_, f_, f_], dim=1)
         
+        # raw fusion
+        r_fusion = torch.cat([fq3, fq4, fq5], dim=1)
+        
+        # fusion query
         fq = self.aggr(r_fusion)
         fq = self.coordconv(fq)
-        # b, 512, 26, 26
+        
+        # fusion query / raw fusion: b, 512, 26, 26 / b, 1536, 26, 26
         return fq, r_fusion
 
 class Projector(nn.Module):

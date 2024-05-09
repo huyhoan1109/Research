@@ -16,7 +16,7 @@ TRAIN:
   smooth: 1e-7
   # Base Arch
   clip_pretrain: /kaggle/input/pretrain/ViT-B-16.pt
-  input_size: 416
+  input_size: 224
   word_len: 17
   word_dim: 512
   vis_dim: 512
@@ -36,7 +36,7 @@ TRAIN:
   milestones: [35]
   start_epoch: 0
   batch_size: 32  # batch size for training
-  batch_size_val: 64  # batch size for validation during training, memory and speed tradeoff
+  batch_size_val: 32  # batch size for validation during training, memory and speed tradeoff
   base_lr: 0.0001
   lr_decay: 0.1
   lr_multi: 0.1
@@ -48,7 +48,6 @@ TRAIN:
   exp_name: CRIS_VIT16
   output_folder: exp/refcoco+
   save_freq: 1
-  weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
 Distributed:
@@ -60,4 +59,4 @@ Distributed:
 TEST:
   test_split: val-test
   test_lmdb: /kaggle/input/refcoco-plus/lmdb/refcoco+/val.lmdb
-  visualize: False
+  visualize: True

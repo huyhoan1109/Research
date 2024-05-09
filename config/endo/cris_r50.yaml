@@ -1,10 +1,5 @@
 DATA:
-  dataset: refcocog_u
-  train_lmdb: datasets/lmdb/refcocog_u/train.lmdb
-  train_split: train
-  val_lmdb: datasets/lmdb/refcocog_u/val.lmdb
-  val_split: val
-  mask_root: datasets/masks/refcocog_u
+  dataset: endo
 TRAIN:
   # Add id to continue training (to continue training => continue_training = 'must')
   run_id: 
@@ -15,12 +10,12 @@ TRAIN:
   gamma: 2
   smooth: 1e-7
   # Base Arch
-  clip_pretrain: pretrain/ViT-B-32.pt
-  input_size: 416
-  word_len: 22
-  word_dim: 512
+  clip_pretrain: pretrain/endo-RN50.pt
+  input_size: 224
+  word_len: 17
+  word_dim: 1024
   vis_dim: 512
-  fpn_in: [768, 768, 512]
+  fpn_in: [512, 1024, 1024]
   fpn_out: [256, 512, 1024]
   sync_bn: True
   # Decoder
@@ -36,7 +31,7 @@ TRAIN:
   milestones: [35]
   start_epoch: 0
   batch_size: 32  # batch size for training
-  batch_size_val: 64  # batch size for validation during training, memory and speed tradeoff
+  batch_size_val: 32  # batch size for validation during training, memory and speed tradeoff
   base_lr: 0.0001
   lr_decay: 0.1
   lr_multi: 0.1
@@ -45,10 +40,9 @@ TRAIN:
   manual_seed: 0
   print_freq: 100
   # Resume & Save
-  exp_name: CRIS_VIT32
-  output_folder: exp/refcocog_u
+  exp_name: CRIS_R50
+  output_folder: exp/endo
   save_freq: 1
-  weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
 Distributed:
@@ -57,7 +51,3 @@ Distributed:
   multiprocessing_distributed: True
   world_size: 1
   rank: 0
-TEST:
-  test_split: val-test
-  test_lmdb: datasets/lmdb/refcocog_u/val.lmdb
-  visualize: False

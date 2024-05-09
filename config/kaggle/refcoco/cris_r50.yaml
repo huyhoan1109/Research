@@ -16,7 +16,7 @@ TRAIN:
   smooth: 1e-7
   # Base Arch
   clip_pretrain: /kaggle/input/pretrain/RN50.pt
-  input_size: 416
+  input_size: 224
   word_len: 17
   word_dim: 1024
   vis_dim: 512
@@ -48,7 +48,6 @@ TRAIN:
   exp_name: CRIS_R50
   output_folder: exp/refcoco
   save_freq: 1
-  weight:  # path to initial weight (default: none)
   resume:  # path to latest checkpoint (default: none)
   evaluate: True  # evaluate on validation set, extra gpu memory needed and small batch_size_val is recommend
 Distributed:
@@ -60,4 +59,4 @@ Distributed:
 TEST:
   test_split: val-test
   test_lmdb: /kaggle/input/refcoco/lmdb/refcoco/val.lmdb
-  visualize: False
+  visualize: True
