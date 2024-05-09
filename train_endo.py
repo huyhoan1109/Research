@@ -140,7 +140,7 @@ def main_worker(gpu, args):
         root_path=args.root_data,
         input_size=args.input_size,
         word_length=args.word_len,
-        split='val'
+        split='test'
     )
 
     # build dataloader
