@@ -33,7 +33,7 @@ def get_args():
 
 def build_clip(cfg):
     weight = torch.jit.load(cfg['clip_pretrain'])
-    return build_model(weight.state_dict(), cfg.word_len).float().cuda()
+    return build_model(weight.state_dict(), cfg['word_len']).float().cuda()
 
 if __name__ == '__main__':
     args = get_args()
