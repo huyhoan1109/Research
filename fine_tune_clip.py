@@ -44,13 +44,13 @@ if __name__ == '__main__':
     train_data = EndosDataset(
         input_size=args['input_size'],
         word_length=args['word_len'],
-        mode='train'
+        split='train'
     )
 
     valid_data = EndosDataset(
         input_size=args['input_size'],
         word_length=args['word_len'],
-        mode='test'
+        split='test'
     )
 
     train_sampler = get_sampler(train_data, args['seed'])
