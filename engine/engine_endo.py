@@ -166,7 +166,7 @@ def inference(test_loader, model, args):
                 cv2.imwrite(filename=os.path.join(args.vis_dir, pred_name), img=pred)
     
     logger.info('=> Metric Calculation <=')
-    iou_list = torch.stack(iou_list).to(imgs.device)
+    iou_list = torch.stack(iou_list).to(img.device)
     iou_list = concat_all_gather(iou_list)
     prec_list = []
     for thres in torch.arange(0.5, 1.0, 0.1):
