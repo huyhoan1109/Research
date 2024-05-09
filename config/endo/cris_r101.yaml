@@ -10,7 +10,7 @@ TRAIN:
   # Base Arch
   clip_pretrain: pretrain/endo-RN101.pt
   input_size: 224
-  word_len: 17
+  word_len: 22
   word_dim: 512
   vis_dim: 512
   fpn_in: [512, 1024, 512]

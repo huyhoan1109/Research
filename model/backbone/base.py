@@ -68,18 +68,17 @@ class Backbone(nn.Module):
                 self.clip.visual.transformer.resblocks[l].register_forward_hook(lambda m, _, o: self.layers.append(o))
     
     def forward_visual(self, image):
-        x = self.clip.encode_image(image)
         if self.use_transformer:
             self.layers = [] 
-            x = self.clip.encode_image(image)
-            batch, grid = x.size(0), x.size(-1)
+            x3 = self.clip.encode_image(image)
+            batch, grid = x3.size(0), x3.size(-1)
             x1 = self.layers[0][1:, :, :]
             x2 = self.layers[1][1:, :, :]
             x1 = x1.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
             x2 = x2.permute(1, 2, 0).reshape(batch, self.vis_channel, grid, grid)
-            return x1, x2, x
+            return x1, x2, x3
         else:
-            return x
+            return self.clip.encode_image(image)
     
     def forward_text(self, text):
         return self.clip.encode_text(text)
