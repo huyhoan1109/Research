@@ -2,7 +2,7 @@ import yaml
 import torch
 import argparse
 from endoscopy.dataset import EndosDataset
-from model.backbone.clip import build_model
+from tuning.clip import build_model
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
 from tuning.engine import train_model, get_sampler
