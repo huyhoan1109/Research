@@ -42,8 +42,8 @@ def get_parser():
                         type=str,
                         help='config file')
     parser.add_argument('--tsg',
-                        type=bool,
-                        default=False,
+                        type=int,
+                        default=0,
                         help='add transformer scale gate.')
     parser.add_argument('--root_data',
                         type=str,
