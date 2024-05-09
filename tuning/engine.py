@@ -14,7 +14,7 @@ def get_sampler(dataset, seed=42):
 
 def train_batch(model, loaders, optimizer):
     model.train()
-    loss_meter = AverageMeter()
+    loss_meter = AverageMeter('Train loss')
     train_tqdm = tqdm(loaders['train'], total=len(loaders['train']))
     for batch in train_tqdm:
         count = batch["image"].size(0)
@@ -28,7 +28,7 @@ def train_batch(model, loaders, optimizer):
 
 def validate(model, loaders):
     model.eval()
-    loss_meter = AverageMeter()
+    loss_meter = AverageMeter('Eval loss')
     valid_tqdm = tqdm(loaders['valid'], total=len(loaders['valid']))
     for batch in valid_tqdm:
         count = batch["image"].size(0)
