@@ -135,14 +135,12 @@ def main_worker(gpu, args):
         input_size=args.input_size,
         word_length=args.word_len,
         split='train',
-        device='cuda:'+args.gpu
     )
     val_data = EndosDataset(
         root_path=args.root_data,
         input_size=args.input_size,
         word_length=args.word_len,
         split='test',
-        device='cuda:'+args.gpu
     )
 
     # build dataloader
@@ -150,8 +148,7 @@ def main_worker(gpu, args):
                       num_workers=args.workers,
                       rank=args.rank,
                       seed=args.manual_seed)
-    train_sampler = data.distributed.DistributedSampler(train_data,
-                                                        shuffle=True)
+    train_sampler = data.distributed.DistributedSampler(train_data, shuffle=True)
     val_sampler = data.distributed.DistributedSampler(val_data, shuffle=False)
     train_loader = data.DataLoader(train_data,
                                    batch_size=args.batch_size,
