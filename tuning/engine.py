@@ -61,7 +61,7 @@ def save_checkpoint(cfg, epoch_log, losses, model, optimizer, lr_scheduler, best
     )
 
 def train_model(cfg, model, loaders, optimizer, lr_scheduler):
-    if cfg.resume:
+    if cfg['resume']:
         start_epoch, best_loss = load_checkpoint(cfg, model, optimizer, lr_scheduler)
     else:
         start_epoch = 0
