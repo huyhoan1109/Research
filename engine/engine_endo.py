@@ -99,10 +99,12 @@ def validate(val_loader, model, epoch, args):
         preds = model(imgs, texts)
         preds = torch.sigmoid(preds)
         if preds.shape[-2:] != target.shape[-2:]:
-            preds = F.interpolate(preds,
-                                  size=target.shape[-2:],
-                                  mode='bicubic',
-                                  align_corners=True).squeeze(1)
+            preds = F.interpolate(
+                preds,
+                size=target.shape[-2:],
+                mode='bicubic',
+                align_corners=True
+            ).squeeze(1)
 
         for pred, mask in zip(preds, target):
             pred = torch.tensor(pred > 0.35)
@@ -146,10 +148,12 @@ def inference(test_loader, model, args):
         preds = model(img, word)
         preds = torch.sigmoid(preds)
         if preds.shape[-2:] != target.shape[-2:]:
-            preds = F.interpolate(preds,
-                                size=target.shape[-2:],
-                                mode='bicubic',
-                                align_corners=True).squeeze(1)
+            preds = F.interpolate(
+                preds,
+                size=target.shape[-2:],
+                mode='bicubic',
+                align_corners=True
+            ).squeeze(1)
         for pred, mask, sent, img_id in zip(preds, target, prompts, img_ids):
             pred = torch.tensor(pred > 0.35)
             # iou

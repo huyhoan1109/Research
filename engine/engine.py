@@ -102,10 +102,12 @@ def validate(val_loader, model, epoch, args):
         preds = model(imgs, texts)
         preds = torch.sigmoid(preds)
         if preds.shape[-2:] != imgs.shape[-2:]:
-            preds = F.interpolate(preds,
-                                  size=imgs.shape[-2:],
-                                  mode='bicubic',
-                                  align_corners=True).squeeze(1)
+            preds = F.interpolate(
+                preds,
+                size=imgs.shape[-2:],
+                mode='bicubic',
+                align_corners=True
+            ).squeeze(1)
         # process one batch
         for pred, mask_dir, mat, ori_size in zip(preds, param['mask_dir'],
                                                  param['inverse'],
@@ -113,9 +115,11 @@ def validate(val_loader, model, epoch, args):
             h, w = np.array(ori_size)
             mat = np.array(mat)
             pred = pred.cpu().numpy()
-            pred = cv2.warpAffine(pred, mat, (w, h),
-                                  flags=cv2.INTER_CUBIC,
-                                  borderValue=0.)
+            pred = cv2.warpAffine(
+                pred, mat, (w, h),
+                flags=cv2.INTER_CUBIC,
+                borderValue=0.
+            )
             pred = np.array(pred > 0.35)
             mask = cv2.imread(mask_dir, flags=cv2.IMREAD_GRAYSCALE)
             mask = mask / 255.
@@ -160,10 +164,14 @@ def inference(test_loader, model, args):
             seg_id = param['seg_id'][0].cpu().numpy()
             img_name = '{}-img.jpg'.format(seg_id)
             mask_name = '{}-mask.png'.format(seg_id)
-            cv2.imwrite(filename=os.path.join(args.vis_dir, img_name),
-                        img=param['ori_img'][0].cpu().numpy())
-            cv2.imwrite(filename=os.path.join(args.vis_dir, mask_name),
-                        img=mask)
+            cv2.imwrite(
+                filename=os.path.join(args.vis_dir, img_name),
+                img=param['ori_img'][0].cpu().numpy()
+            )
+            cv2.imwrite(
+                filename=os.path.join(args.vis_dir, mask_name),
+                img=mask
+            )
         # multiple sentences
         for sent in param['sents']:
             mask = mask / 255.
@@ -173,17 +181,21 @@ def inference(test_loader, model, args):
             pred = model(img, text)
             pred = torch.sigmoid(pred)
             if pred.shape[-2:] != img.shape[-2:]:
-                pred = F.interpolate(pred,
-                                     size=img.shape[-2:],
-                                     mode='bicubic',
-                                     align_corners=True).squeeze()
+                pred = F.interpolate(
+                    pred,
+                    size=img.shape[-2:],
+                    mode='bicubic',
+                    align_corners=True
+                ).squeeze()
             # process one sentence
             h, w = param['ori_size'].numpy()[0]
             mat = param['inverse'].numpy()[0]
             pred = pred.cpu().numpy()
-            pred = cv2.warpAffine(pred, mat, (w, h),
-                                  flags=cv2.INTER_CUBIC,
-                                  borderValue=0.)
+            pred = cv2.warpAffine(
+                pred, mat, (w, h),
+                flags=cv2.INTER_CUBIC,
+                borderValue=0.
+            )
             pred = np.array(pred > 0.35)
             # iou
             inter = np.logical_and(pred, mask)
@@ -195,8 +207,10 @@ def inference(test_loader, model, args):
                 pred = np.array(pred*255, dtype=np.uint8)
                 sent = "_".join(sent[0].split(" "))
                 pred_name = '{}-iou={:.2f}-{}.png'.format(seg_id, iou*100, sent)
-                cv2.imwrite(filename=os.path.join(args.vis_dir, pred_name),
-                            img=pred)
+                cv2.imwrite(
+                    filename=os.path.join(args.vis_dir, pred_name),
+                    img=pred
+                )
     logger.info('=> Metric Calculation <=')
     iou_list = np.stack(iou_list)
     iou_list = torch.from_numpy(iou_list).to(img.device)
