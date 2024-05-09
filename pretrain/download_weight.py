@@ -1,8 +1,8 @@
 import os
-import urllib
 import hashlib
 import warnings
 import argparse
+import urllib.request
 from tqdm import tqdm
 
 MODELS = {
