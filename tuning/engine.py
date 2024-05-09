@@ -18,7 +18,7 @@ def train_batch(model, loaders, optimizer):
     train_tqdm = tqdm(loaders['train'], total=len(loaders['train']))
     for batch in train_tqdm:
         count = batch["image"].size(0)
-        image, text = batch['image'], batch['word']
+        image, text = batch['image'].cuda(), batch['word'].cuda()
         loss = clip_loss(model, image, text)
         optimizer.zero_grad()
         loss.backward()
@@ -32,7 +32,7 @@ def validate(model, loaders):
     valid_tqdm = tqdm(loaders['valid'], total=len(loaders['valid']))
     for batch in valid_tqdm:
         count = batch["image"].size(0)
-        image, text = batch['image'], batch['word']
+        image, text = batch['image'].cuda(), batch['word'].cuda()
         loss = clip_loss(model, image, text)
         loss_meter.update(loss.item(), count)
         valid_tqdm.set_postfix(valid_loss=loss_meter.avg)
