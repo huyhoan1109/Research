@@ -1,5 +1,6 @@
 CUDA_VISIBLE_DEVICES=$1 python \
     -u train_endo.py \
-    --config config/endo/cris_r50.yaml \
+    --config config/endo/cris_vit16.yaml \
     --root_data /mnt/tuyenld/data/endoscopy/full_endo_data \
-    --opts TRAIN.exp_name CRIS_50_ENDO
+    --tsg $2
+    --opts TRAIN.exp_name CRIS_VIT16_ENDO
