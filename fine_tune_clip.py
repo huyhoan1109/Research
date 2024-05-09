@@ -42,19 +42,19 @@ if __name__ == '__main__':
     scheduler = MultiStepLR(optimizer, milestones=args['milestones'], gamma=args['lr_decay'])
     
     train_data = EndosDataset(
-        input_size=args.input_size,
-        word_length=args.word_len,
+        input_size=args['input_size'],
+        word_length=args['word_len'],
         mode='train'
     )
 
     valid_data = EndosDataset(
-        input_size=args.input_size,
-        word_length=args.word_len,
+        input_size=args['input_size'],
+        word_length=args['word_len'],
         mode='test'
     )
 
-    train_sampler = get_sampler(train_data, args.seed)
-    valid_sampler = get_sampler(valid_data, args.seed)
+    train_sampler = get_sampler(train_data, args['seed'])
+    valid_sampler = get_sampler(valid_data, args['seed'])
 
     train_loader = DataLoader(
         train_data,
