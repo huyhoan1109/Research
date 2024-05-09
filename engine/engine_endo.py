@@ -153,6 +153,8 @@ def inference(test_loader, model, args):
                                 mode='bicubic',
                                 align_corners=True).squeeze(1)
         for pred, mask, sent, img_id in zip(preds, target, prompts, img_ids):
+            pred = pred.cpu().numpy()
+            mask = mask.cpu()
             pred = np.array(pred > 0.35)
             mask = np.array(mask)
             # iou
