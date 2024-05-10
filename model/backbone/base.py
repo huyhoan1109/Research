@@ -52,15 +52,13 @@ class CoordConv(nn.Module):
 class Backbone(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        
         checkpoint = torch.jit.load(cfg.clip_pretrain, map_location="cpu").eval()
         if 'model' in checkpoint:
-            self.clip = build_model(checkpoint['model'].state_dict(), cfg.word_len).float()
+            weight = checkpoint['model']
         else:
-            self.clip = build_model(checkpoint.state_dict(), cfg.word_len).float()
-
+            weight = checkpoint
+        self.clip = build_model(weight.state_dict(), cfg.word_len).float()
         self.use_transformer = isinstance(self.clip.visual, VisionTransformer)
-            
         if self.use_transformer:
             num_layers = self.clip.visual.transformer.layers
             assert num_layers >= 3 
