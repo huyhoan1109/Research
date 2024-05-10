@@ -77,8 +77,8 @@ def train_model(cfg, model, loaders, optimizer, lr_scheduler):
     }
     for epoch in range(start_epoch, cfg['epochs']):
         epoch_log = epoch + 1
-        train_batch(cfg, model, loaders, optimizer, meters)
-        cur_loss = validate(model, loaders, meters)
+        train_batch(cfg, model, loaders['train'], optimizer, meters)
+        cur_loss = validate(model, loaders['valid'], meters)
         best_loss = cur_loss if cur_loss <= best_loss else best_loss
         losses = {
             'cur': cur_loss,
