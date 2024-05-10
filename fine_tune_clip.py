@@ -15,9 +15,14 @@ def load_yaml(path):
             print(exc)
 
 def load_config(args, yaml_cfg):
-    for config in yaml_cfg.keys():
-        if yaml_cfg[config] == None and args.__getattribute__(config) != None:
-            yaml_cfg[config] = args.__getattribute__(config)
+    for key in yaml_cfg.keys():
+        if yaml_cfg[key] == None and args.__getattribute__(key) != None:
+            yaml_cfg[key] = args.__getattribute__(key)
+    for key in args.keys():
+        if key in yaml_cfg.keys():
+            continue
+        else:
+            yaml_cfg[key] = args.__getattribute__(key)
     return yaml_cfg
 
 def get_args():
