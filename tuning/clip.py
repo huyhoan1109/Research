@@ -350,12 +350,11 @@ class VisionTransformer(nn.Module):
         x = x.permute(1, 0, 2)  # LND -> NLD
         
         # Drop class embedding
-        x = self.ln_post(x[:, 1:, :])
+        x = self.ln_post(x[:, 0, :])
 
         if self.proj is not None:
             x = x @ self.proj  
 
-        x = x.permute(0, 2, 1).reshape(batch, self.output_dim, grid, grid)
         return x
 
 
