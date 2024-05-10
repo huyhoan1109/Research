@@ -18,7 +18,8 @@ def load_config(args, yaml_cfg):
     for key in yaml_cfg.keys():
         if yaml_cfg[key] == None and args.__getattribute__(key) != None:
             yaml_cfg[key] = args.__getattribute__(key)
-    for key in args.keys():
+    args_keys = args._get_args()
+    for key in args_keys:
         if key in yaml_cfg.keys():
             continue
         else:
