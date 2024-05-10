@@ -6,7 +6,7 @@ from tuning.loss import clip_loss
 from torch.utils.data import RandomSampler
 
 
-def get_sampler(dataset, seed=42):
+def get_sampler(dataset, seed):
     generator = torch.Generator()
     generator.manual_seed(seed)
     sampler = RandomSampler(dataset, generator=generator)

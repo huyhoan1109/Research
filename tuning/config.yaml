@@ -5,7 +5,7 @@ clip_pretrain:
 resume: 
 input_size: 224
 word_len: 77
-seed: 23782376
+seed: 0
 milestones: [35]
 epochs: 100
 base_lr: 0.0001

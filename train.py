@@ -141,7 +141,7 @@ def main_worker(gpu, args):
         rank=args.rank,
         seed=args.manual_seed
     )
-    train_sampler = data.distributed.DistributedSampler(train_data,shuffle=True)
+    train_sampler = data.distributed.DistributedSampler(train_data, shuffle=True)
     val_sampler = data.distributed.DistributedSampler(val_data, shuffle=False)
     train_loader = data.DataLoader(
         train_data,

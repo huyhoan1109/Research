@@ -97,7 +97,8 @@ if __name__ == '__main__':
         batch_size=args['train_batch'],
         num_workers=args['train_worker'],
         pin_memory=True,
-        sampler=train_sampler
+        sampler=train_sampler,
+        shuffle=False
     )
 
     valid_loader = DataLoader(
@@ -105,7 +106,8 @@ if __name__ == '__main__':
         batch_size=args['valid_batch'],
         num_workers=args['valid_worker'],
         pin_memory=True,
-        sampler=valid_sampler
+        sampler=valid_sampler,
+        shuffle=False
     )
     
     loaders = {
