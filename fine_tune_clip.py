@@ -24,8 +24,6 @@ def load_config(args, yaml_cfg):
             continue
         else:
             yaml_cfg[key] = args.__getattribute__(key)
-    print(yaml_cfg['prefix_name'])
-    pass
     return yaml_cfg
 
 def get_args():
