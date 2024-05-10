@@ -1,4 +1,5 @@
 import yaml
+import wandb
 import torch
 import argparse
 from endoscopy.dataset import EndosDataset
@@ -6,6 +7,9 @@ from tuning.clip import build_model
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
 from tuning.engine import train_model, get_sampler
+from dotenv import dotenv_values
+
+ENV_VAR = dotenv_values(".env")
 
 def load_yaml(path):
     with open(path) as stream:
@@ -32,6 +36,8 @@ def get_args():
     parser.add_argument('--clip_pretrain', default=None, type=str, help='load pretrained weight')
     parser.add_argument('--resume', nargs='?', help='load resume weight')
     parser.add_argument('--prefix_name', default=None, type=str, help='save weight prefix name')
+    parser.add_argument('--run_id', default=None, type=str, help='log run id')
+    parser.add_argument('--continue_training', default=None, type=str, help='continue logging')
     args = parser.parse_args()
     yaml_cfg = load_yaml(args.config)
     cfg = load_config(args, yaml_cfg)
@@ -41,9 +47,28 @@ def build_clip(cfg):
     weight = torch.jit.load(cfg['clip_pretrain'])
     return build_model(weight.state_dict()).float().cuda()
 
+def init_logger(args):
+    wandb.login(key=ENV_VAR['API_KEY'])
+    wlogger = wandb.init(
+        config=args,
+        project='Finetuning CLIP for Endo',
+        id=args['run_id'],
+        resume=args['continue_training']
+    )
+    wlogger.define_metric('training/step')
+    wlogger.define_metric('eval/step')
+    wlogger.define_metric(
+        'training/loss', step_metric='training/step'
+    )
+    wlogger.define_metric(
+        'eval/loss', step_metric='eval/step'
+    )
+    return wlogger
+
 if __name__ == '__main__':
     args = get_args()
     model = build_clip(args)
+    logger = init_logger(args)
     optimizer = torch.optim.Adam(model.parameters(), lr=args['base_lr'], weight_decay=args['weight_decay'])
     scheduler = MultiStepLR(optimizer, milestones=args['milestones'], gamma=args['lr_decay'])
     
@@ -82,4 +107,4 @@ if __name__ == '__main__':
         'train': train_loader,
         'valid': valid_loader
     }
-    train_model(args, model, loaders, optimizer, scheduler)
+    train_model(args, model, loaders, optimizer, scheduler, logger)

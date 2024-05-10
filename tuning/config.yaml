@@ -1,3 +1,5 @@
+run_id:
+continue_training:
 prefix_name:
 clip_pretrain:
 resume: 
