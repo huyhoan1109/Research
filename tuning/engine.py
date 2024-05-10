@@ -12,8 +12,14 @@ def get_sampler(dataset, seed=42):
     sampler = RandomSampler(dataset, generator=generator)
     return sampler
 
-def train_batch(cfg, model, train_loader, optimizer, meters):
+def train_batch(cfg, epoch, model, train_loader, optimizer):
     model.train()
+    loss_meter = AverageMeter('Train loss')
+    progress_meter = ProgressMeter(
+        len(train_loader),
+        [loss_meter],
+        prefix="Training: Epoch=[{}/{}] ".format(epoch, cfg['epochs'])
+    )
     for i, batch in enumerate(train_loader):
         count = batch["image"].size(0)
         image, text = batch['image'].cuda(), batch['word'].cuda()
@@ -21,19 +27,21 @@ def train_batch(cfg, model, train_loader, optimizer, meters):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        meters['train_loss'].update(loss.item(), count)
+        loss_meter.update(loss.item(), count)
         if (i + 1) % cfg['print_freq'] == 0:
-            meters['progress'].display(i + 1)
+            progress_meter.display(i + 1)
 
 
-def validate(model, valid_loader, meters):
+def validate(model, valid_loader):
     model.eval()
+    loss_meter = AverageMeter('Eval loss')
     for i, batch in enumerate(valid_loader):
         count = batch["image"].size(0)
         image, text = batch['image'].cuda(), batch['word'].cuda()
         loss = clip_loss(model, image, text)
-        meters['valid_loss'].update(loss.item(), count)
-    return meters['valid_loss'].avg
+        loss_meter.update(loss.item(), count)
+    print(f"Valid loss: {loss_meter.avg}")
+    return loss_meter.avg
 
 def load_checkpoint(cfg, model, optimizer, lr_scheduler):
     checkpoint = torch.load(cfg['resume'])
@@ -63,22 +71,10 @@ def train_model(cfg, model, loaders, optimizer, lr_scheduler):
     else:
         start_epoch = 0
         best_loss = float('inf')
-    train_loss_meter = AverageMeter('Train loss')
-    valid_loss_meter = AverageMeter('Eval loss')
-    progress_meter = ProgressMeter(
-        len(loaders['train']),
-        [train_loss_meter, valid_loss_meter],
-        prefix="Training: Epoch=[{}/{}] ".format(start_epoch, cfg['epochs'])
-    )
-    meters = {
-        'train_loss': train_loss_meter,
-        'valid_loss': valid_loss_meter,
-        'progress': progress_meter
-    }
     for epoch in range(start_epoch, cfg['epochs']):
         epoch_log = epoch + 1
-        train_batch(cfg, model, loaders['train'], optimizer, meters)
-        cur_loss = validate(model, loaders['valid'], meters)
+        train_batch(cfg, epoch, model, loaders['train'], optimizer)
+        cur_loss = validate(model, loaders['valid'])
         best_loss = cur_loss if cur_loss <= best_loss else best_loss
         losses = {
             'cur': cur_loss,
