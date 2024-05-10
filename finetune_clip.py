@@ -67,6 +67,9 @@ def init_logger(args):
     )
     return wlogger
 
+def finish_logger():
+    wandb.finish()
+
 if __name__ == '__main__':
     args = get_args()
     model = build_clip(args)
@@ -110,3 +113,4 @@ if __name__ == '__main__':
         'valid': valid_loader
     }
     train_model(args, model, loaders, optimizer, scheduler, logger)
+    finish_logger()
