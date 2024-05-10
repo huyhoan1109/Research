@@ -53,7 +53,7 @@ def load_checkpoint(cfg, model, optimizer, lr_scheduler):
     checkpoint = torch.load(cfg['resume'])
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
-    lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+    lr_scheduler.load_state_dict(checkpoint['scheduler'])
     return checkpoint['epoch'], checkpoint['best_loss']
 
 def save_checkpoint(cfg, epoch_log, losses, model, optimizer, lr_scheduler, best=False):
