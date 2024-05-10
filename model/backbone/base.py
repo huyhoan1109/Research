@@ -66,16 +66,12 @@ class Backbone(nn.Module):
                 self.clip.visual.transformer.resblocks[l].register_forward_hook(lambda m, _, o: self.layers.append(o))
     
     def load_pretrain(self):
-        with open(self.cfg.clip_pretrain, 'rb') as opened_file:
-            try:
-                # loading JIT archive
-                weight = torch.jit.load(opened_file, map_location="cpu").eval()
-                return weight.state_dict()
-            except RuntimeError:
-                # loading saved state dict
-                warnings.warn(f"File {self.cfg.clip_pretrain} is not a JIT archive. Loading as a state dict instead")
-                weight = torch.load(opened_file, map_location="cpu")
-                return weight['model']
+        if not self.cfg.jit:
+            weight = torch.load(self.cfg.clip_pretrain, map_location="cpu").eval()
+            return weight['model']
+        else:
+            weight = torch.jit.load(self.cfg.clip_pretrain, map_location="cpu").eval()
+            return weight.state_dict()
 
     def forward_visual(self, image):
         if self.use_transformer:
