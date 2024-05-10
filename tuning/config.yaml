@@ -1,3 +1,4 @@
+prefix_name:
 clip_pretrain:
 resume: 
 input_size: 224
