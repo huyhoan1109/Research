@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from model.backbone.clip import build_model, VisionTransformer
 import torch.nn.functional as F
+import warnings
 
 def conv_layer(in_dim, out_dim, kernel_size=1, padding=0, stride=1):
     return nn.Sequential(
@@ -52,12 +53,8 @@ class CoordConv(nn.Module):
 class Backbone(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        checkpoint = torch.jit.load(cfg.clip_pretrain, map_location="cpu").eval()
-        if 'model' in checkpoint:
-            weight = checkpoint['model']
-        else:
-            weight = checkpoint
-        self.clip = build_model(weight.state_dict(), cfg.word_len).float()
+        self.cfg = cfg
+        self.clip = build_model(self.load_pretrain(), cfg.word_len).float()
         self.use_transformer = isinstance(self.clip.visual, VisionTransformer)
         if self.use_transformer:
             num_layers = self.clip.visual.transformer.layers
@@ -68,6 +65,18 @@ class Backbone(nn.Module):
             for l in self.layer_indexes:
                 self.clip.visual.transformer.resblocks[l].register_forward_hook(lambda m, _, o: self.layers.append(o))
     
+    def load_pretrain(self):
+        with open(self.cfg.clip_pretrain, 'rb') as opened_file:
+            try:
+                # loading JIT archive
+                weight = torch.jit.load(opened_file, map_location="cpu").eval()
+                return weight.state_dict()
+            except RuntimeError:
+                # loading saved state dict
+                warnings.warn(f"File {self.cfg.clip_pretrain} is not a JIT archive. Loading as a state dict instead")
+                weight = torch.load(opened_file, map_location="cpu")
+                return weight['model']
+
     def forward_visual(self, image):
         if self.use_transformer:
             self.layers = [] 
