@@ -98,7 +98,8 @@ if __name__ == '__main__':
         num_workers=args['train_worker'],
         pin_memory=True,
         sampler=train_sampler,
-        shuffle=False
+        shuffle=False,
+        drop_last=False
     )
 
     valid_loader = DataLoader(
@@ -107,7 +108,8 @@ if __name__ == '__main__':
         num_workers=args['valid_worker'],
         pin_memory=True,
         sampler=valid_sampler,
-        shuffle=False
+        shuffle=False,
+        drop_last=False
     )
     
     loaders = {

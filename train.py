@@ -15,7 +15,8 @@ import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.parallel
 import torch.optim
-import torch.utils.data as data
+from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler 
 from loguru import logger
 from torch.optim.lr_scheduler import MultiStepLR
 
@@ -141,9 +142,9 @@ def main_worker(gpu, args):
         rank=args.rank,
         seed=args.manual_seed
     )
-    train_sampler = data.distributed.DistributedSampler(train_data, shuffle=True)
-    val_sampler = data.distributed.DistributedSampler(val_data, shuffle=False)
-    train_loader = data.DataLoader(
+    train_sampler = DistributedSampler(train_data, shuffle=True)
+    val_sampler = DistributedSampler(val_data, shuffle=False)
+    train_loader = DataLoader(
         train_data,
         batch_size=args.batch_size,
         shuffle=False,
@@ -153,7 +154,7 @@ def main_worker(gpu, args):
         sampler=train_sampler,
         drop_last=True
     )
-    val_loader = data.DataLoader(
+    val_loader = DataLoader(
         val_data,
         batch_size=args.batch_size_val,
         shuffle=False,

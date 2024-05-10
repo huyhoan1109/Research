@@ -5,7 +5,7 @@ import warnings
 import cv2
 import torch
 import torch.nn.parallel
-import torch.utils.data
+from torch.utils.data import DataLoader
 from loguru import logger
 
 import utils.config as config
@@ -61,7 +61,7 @@ def main():
         input_size=args.input_size,
         word_length=args.word_len
     )
-    test_loader = torch.utils.data.DataLoader(
+    test_loader = DataLoader(
         test_data,
         batch_size=1,
         shuffle=False,
