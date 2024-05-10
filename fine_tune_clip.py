@@ -53,6 +53,8 @@ def init_logger(args):
         config=args,
         project='Finetuning CLIP for Endo',
         id=args['run_id'],
+        name=args['exp_name'],
+        tags=args['clip_pretrain'],
         resume=args['continue_training']
     )
     wlogger.define_metric('training/step')
