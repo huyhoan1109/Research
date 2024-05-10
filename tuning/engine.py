@@ -73,7 +73,7 @@ def train_model(cfg, model, loaders, optimizer, lr_scheduler):
         best_loss = float('inf')
     for epoch in range(start_epoch, cfg['epochs']):
         epoch_log = epoch + 1
-        train_batch(cfg, epoch, model, loaders['train'], optimizer)
+        train_batch(cfg, epoch_log, model, loaders['train'], optimizer)
         cur_loss = validate(model, loaders['valid'])
         best_loss = cur_loss if cur_loss <= best_loss else best_loss
         losses = {
