@@ -67,7 +67,7 @@ class Backbone(nn.Module):
     
     def load_pretrain(self):
         if not self.cfg.jit:
-            weight = torch.load(self.cfg.clip_pretrain, map_location="cpu").eval()
+            weight = torch.load(self.cfg.clip_pretrain, map_location="cpu")
             return weight['model']
         else:
             weight = torch.jit.load(self.cfg.clip_pretrain, map_location="cpu").eval()
