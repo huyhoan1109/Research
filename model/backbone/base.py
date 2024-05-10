@@ -53,8 +53,11 @@ class Backbone(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         
-        weight = torch.jit.load(cfg.clip_pretrain, map_location="cpu").eval()
-        self.clip = build_model(weight.state_dict(), cfg.word_len).float()
+        checkpoint = torch.jit.load(cfg.clip_pretrain, map_location="cpu").eval()
+        if 'model' in checkpoint:
+            self.clip = build_model(checkpoint['model'].state_dict(), cfg.word_len).float()
+        else:
+            self.clip = build_model(checkpoint.state_dict(), cfg.word_len).float()
 
         self.use_transformer = isinstance(self.clip.visual, VisionTransformer)
             
