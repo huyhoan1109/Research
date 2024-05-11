@@ -4,5 +4,4 @@ CUDA_VISIBLE_DEVICES=$1 python \
     --root_data /mnt/tuyenld/data/endoscopy/full_endo_data \
     --tsg $2 \
     --early_stop $3 \
-    --opts TRAIN.exp_name CRIS_R101_ENDO \
-           TRAIN.clip_pretrain exp/endo-RN101_best_model.pth
+    --opts TRAIN.clip_pretrain exp/endo-RN101_best_model.pth
