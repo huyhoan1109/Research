@@ -37,6 +37,7 @@ def get_parser():
     parser.add_argument('--config', default='path to xxx.yaml', type=str, help='config file')
     parser.add_argument('--tsg', default=0, type=int, help='add transformer scale gate.')
     parser.add_argument('--jit', default=0, type=int, help='jit mode.')
+    parser.add_argument('--early_stop', default=10, type=int, help='set early stop epoch')
     parser.add_argument('--opts', default=None, nargs=argparse.REMAINDER, help='override some settings in the config.')
     args = parser.parse_args()
     assert args.config is not None
@@ -172,7 +173,7 @@ def main_worker(gpu, args):
             map_location = {'cuda:%d' % 0: 'cuda:%d' % args.rank}
             checkpoint = torch.load(args.resume, map_location=map_location)
             args.start_epoch = checkpoint['epoch']
-            best_IoU = checkpoint["best_iou"]
+            best_IoU = checkpoint["iou"]
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
             scheduler.load_state_dict(checkpoint['scheduler'])
@@ -181,6 +182,7 @@ def main_worker(gpu, args):
             raise ValueError(f"=> resume failed! no checkpoint found at '{args.resume}'. Please check args.resume again!")
 
     # start training
+    early_epoch = args.early_stop
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
         epoch_log = epoch + 1
@@ -207,23 +209,25 @@ def main_worker(gpu, args):
             wlogger.logging(val_log)
 
             # save model
-            lastname = os.path.join(args.output_dir, "last_model.pth")
-            torch.save(
-                {
-                    'epoch': epoch_log,
-                    'cur_iou': iou,
-                    'best_iou': best_IoU,
-                    'prec': prec_dict,
-                    'state_dict': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                    'scheduler': scheduler.state_dict()
-                }, 
-                lastname
-            )
-            if iou >= best_IoU:
+            if iou >= best_IoU and early_epoch > 0:
                 best_IoU = iou
-                bestname = os.path.join(args.output_dir, "best_model.pth")
-                shutil.copyfile(lastname, bestname)
+                early_epoch = args.early_stop
+                model_name = os.path.join(args.output_dir, "best_model.pth")
+                torch.save(
+                    {
+                        'epoch': epoch_log,
+                        'iou': iou,
+                        'prec': prec_dict,
+                        'state_dict': model.state_dict(),
+                        'optimizer': optimizer.state_dict(),
+                        'scheduler': scheduler.state_dict()
+                    }, 
+                    model_name
+                )
+            else:
+                early_epoch -= 1
+                if early_epoch == 0:
+                    break
 
         # update lr
         scheduler.step(epoch_log)

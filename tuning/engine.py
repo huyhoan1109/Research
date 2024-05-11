@@ -54,16 +54,14 @@ def load_checkpoint(cfg, model, optimizer, lr_scheduler):
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     lr_scheduler.load_state_dict(checkpoint['scheduler'])
-    return checkpoint['epoch'], checkpoint['best_loss']
+    return checkpoint['epoch'], checkpoint['loss']
 
-def save_checkpoint(cfg, epoch_log, losses, model, optimizer, lr_scheduler, best=False):
-    model_name = "best_model.pth" if best else "last_model.pth"
-    model_path = os.path.join(cfg['output_dir'], f"{cfg['prefix_name']}_{model_name}")
+def save_checkpoint(cfg, epoch_log, losses, model, optimizer, lr_scheduler):
+    model_path = os.path.join(cfg['output_dir'], f"{cfg['prefix_name']}_best_model.pth")
     torch.save(
         {
             'epoch': epoch_log,
-            'cur_loss': losses['cur'],
-            'best_loss': losses['best'],
+            'loss': losses['cur'],
             'model': model.state_dict(),
             'optimizer': optimizer.state_dict(),
             'scheduler': lr_scheduler.state_dict()
@@ -77,6 +75,7 @@ def train_model(cfg, model, loaders, optimizer, lr_scheduler, logger):
     else:
         start_epoch = 0
         best_loss = float('inf')
+    early_epoch = cfg.early_stop
     for epoch in range(start_epoch, cfg['epochs']):
         epoch_log = epoch + 1
         train_batch(cfg, epoch_log, model, loaders['train'], optimizer, logger)
@@ -89,11 +88,11 @@ def train_model(cfg, model, loaders, optimizer, lr_scheduler, logger):
             commit=True
         )
         best_loss = cur_loss if cur_loss <= best_loss else best_loss
-        losses = {
-            'cur': cur_loss,
-            'best': best_loss
-        }
-        save_checkpoint(cfg, epoch_log, losses, model, optimizer, lr_scheduler)
-        if best_loss == cur_loss:
-            save_checkpoint(cfg, epoch_log, losses, model, optimizer, lr_scheduler, best=True)
+        if best_loss == cur_loss and early_epoch > 0:
+            save_checkpoint(cfg, epoch_log, best_loss, model, optimizer, lr_scheduler)
+            early_epoch = cfg.early_stop
+        else:
+            early_epoch -= 1
+            if early_epoch == 0:
+                break
         lr_scheduler.step(epoch_log)
