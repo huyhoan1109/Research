@@ -137,7 +137,7 @@ def validate(val_loader, model, epoch, args):
         value = prec_list[i].item()
         prec[key] = value
         temp += "{}: {:.2f}  ".format(key, 100. * value)
-    head = 'Evaluation: Epoch=[{}/{}]  IoU={:.2f}'.format(epoch, args.epochs, 100. * iou.item())
+    head = 'Evaluation: Epoch=[{}/{}]  IoU={:.2f} Dice={:.2f}'.format(epoch, args.epochs, 100. * iou.item(), 100. * dice_coef.item())
     logger.info(head + temp)
     return iou.item(), prec, dice_coef.item()
 
@@ -197,7 +197,7 @@ def inference(test_loader, model, args):
         key = 'Pr@{}'.format(thres*10)
         value = prec_list[i].item()
         prec[key] = value
-    logger.info('IoU={:.2f}'.format(100.*iou.item()))
+    logger.info('IoU={:.2f} Dice={:.2f}'.format(100.*iou.item(), 100.*dice_coef.item()))
     for k, v in prec.items():
         logger.info('{}: {:.2f}.'.format(k, 100.*v))
 
