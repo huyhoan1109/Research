@@ -16,7 +16,7 @@ TRAIN:
   smooth: 1e-7
   # Base Arch
   clip_pretrain: pretrain/RN101.pt
-  input_size: 224
+  input_size: 384
   word_len: 22
   word_dim: 512
   vis_dim: 512

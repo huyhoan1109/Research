@@ -11,7 +11,7 @@ TRAIN:
   smooth: 1e-7
   # Base Arch
   clip_pretrain: pretrain/endo-RN50.pt
-  input_size: 224
+  input_size: 384
   word_len: 17
   word_dim: 1024
   vis_dim: 512
