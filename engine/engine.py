@@ -131,7 +131,7 @@ def validate(val_loader, model, epoch, args):
             inter = np.logical_and(pred, mask)
             union = np.logical_or(pred, mask)
             iou = np.sum(inter) / (np.sum(union) + 1e-6)
-            dice_coef = 2 * inter.sum() / (pred + mask).sum()
+            dice_coef = 2 * torch.sum(inter) / torch.sum(pred + mask)
             iou_list.append(iou)
             dice_coef_list.append(dice_coef)
     iou_list = np.stack(iou_list)
@@ -211,7 +211,7 @@ def inference(test_loader, model, args):
             inter = np.logical_and(pred, mask)
             union = np.logical_or(pred, mask)
             iou = np.sum(inter) / (np.sum(union) + 1e-6)
-            dice_coef = 2 * inter.sum() / (pred + mask).sum()
+            dice_coef = 2 * np.sum(inter) / np.sum(pred + mask)
             iou_list.append(iou)
             dice_coef_list.append(dice_coef)
             # dump prediction

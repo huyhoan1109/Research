@@ -4,7 +4,7 @@ TRAIN:
   # Add id to continue training (to continue training => continue_training = 'must')
   run_id: 
   continue_training: 
-  loss_type: ce
+  loss_type: bce_dice
   # Base Arch
   clip_pretrain: pretrain/endo-RN101.pt
   input_size: 384

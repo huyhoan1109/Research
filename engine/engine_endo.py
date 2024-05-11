@@ -117,7 +117,7 @@ def validate(val_loader, model, epoch, args):
         unions = torch.logical_or(preds, target)
         iou = torch.sum(inters) / (torch.sum(unions) + 1e-6)
         iou_list.append(iou)
-        dice_coef = 2 * inters.sum() / (preds + target).sum()
+        dice_coef = 2 * torch.sum(inters) / torch.sum(preds + target)
         dice_coef_list.append(dice_coef)
 
     iou_list = torch.stack(iou_list).to(imgs.device)
@@ -170,7 +170,7 @@ def inference(test_loader, model, args):
             inter = torch.logical_and(pred, mask)
             union = torch.logical_or(pred, mask)
             iou = torch.sum(inter) / (torch.sum(union) + 1e-6)
-            dice_coef = 2 * inter.sum() / (pred + mask).sum()
+            dice_coef = 2 * torch.sum(inter) / torch.sum(pred + mask)
             iou_list.append(iou)
             dice_coef_list.append(dice_coef)
             if args.visualize:
