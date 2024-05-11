@@ -2,7 +2,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# Have logits
+def build_loss(name):
+    if name is None:
+        name = 'ce'
+    return {
+        'ce': CELoss,
+        'dice': DiceLoss,
+        'focal': FocalLoss
+    }[name]
+
 class CELoss(nn.Module):
     def __init__(self, cfg, reduction='mean'):
         super(CELoss, self).__init__()
@@ -38,7 +46,6 @@ class DiceLoss(nn.Module):
         self.smooth = cfg.smooth
         self.reduction = reduction
     def forward(self, input, target):
-        input = F.sigmoid(input)
         # flatten
         input = input.view(-1).float()
         target = target.view(-1).float()

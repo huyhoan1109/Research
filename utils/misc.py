@@ -120,21 +120,19 @@ def trainMetricGPU(output, target, threshold=0.35, pr_iou=0.5):
     output[output < threshold] = 0.
     output[output >= threshold] = 1.
     result = metrics.calculate_metrics(output, target, dim=1, ths=pr_iou)
-    return 100. * result['iou'], 100. * result['precision']
+    return 100. * result['iou'], 100. * result['precision'], 100 * result['dice_coef']
 
 
-def ValMetricGPU(output, target, threshold=0.35):
+def valMetricGPU(output, target, threshold=0.35):
     assert output.size(0) == 1
     output = output.flatten(1)
     target = target.flatten(1)
     output = torch.sigmoid(output)
     output[output < threshold] = 0.
     output[output >= threshold] = 1.
-    # inter & union
-    inter = (output.bool() & target.bool()).sum(dim=1)  # b
-    union = (output.bool() | target.bool()).sum(dim=1)  # b
-    ious = inter / (union + 1e-6)  # 0 ~ 1
-    return ious
+    result = metrics.calculate_metrics(output, target, dim=1)
+    return 100. * result['iou'], 100 * result['dice_coef']
+
 
 
 def intersectionAndUnionGPU(output, target, K, threshold=0.5):
@@ -315,13 +313,15 @@ class WandbLogger():
                 "training/lr",
                 "training/loss",
                 "training/iou",
-                "training/prec@50"
+                "training/dice_coef"
+                "training/prec@50", 
             ],
             'training/step'
         )
         self.define_metrics(
             [
                 "eval/iou",
+                "eval/dice_coef",
                 "eval/prec@50",
                 "eval/prec@60",
                 "eval/prec@70",

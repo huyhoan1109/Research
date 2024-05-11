@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from model.backbone.base import build_backbone
-from loss import CELoss, FocalLoss, DiceLoss
+from loss import build_loss
 
 
 from model.layers import FPN, Projector, TransformerDecoder
@@ -27,14 +27,8 @@ class CRIS(nn.Module):
                                           return_intermediate=cfg.intermediate)
         # Projector
         self.proj = Projector(cfg.word_dim, cfg.vis_dim // 2, 3)
-        loss_type = cfg.loss_type
-        if loss_type == 'focal':
-            self.loss_func = FocalLoss(cfg)
-        elif loss_type == 'dice':
-            self.loss_func = DiceLoss(cfg)
-        else:
-            self.loss_func = CELoss(cfg)
-    
+        self.loss_func = build_loss(cfg.loss_type)
+
     def forward(self, img, word, mask=None):
         '''
             img: b, 3, h, w
