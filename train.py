@@ -213,7 +213,8 @@ def main_worker(gpu, args):
             if iou >= best_IoU and early_epoch > 0:
                 best_IoU = iou
                 early_epoch = args.early_stop
-                model_name = os.path.join(args.output_dir, f"best_model_{args.input_size}.pth")
+                model_name = f"best_model_tsg_{args.input_size}.pth" if args.tsg else f"best_model_base_{args.input_size}.pth"
+                model_path = os.path.join(args.output_dir, model_name)
                 torch.save(
                     {
                         'epoch': epoch_log,
@@ -223,7 +224,7 @@ def main_worker(gpu, args):
                         'optimizer': optimizer.state_dict(),
                         'scheduler': scheduler.state_dict()
                     }, 
-                    model_name
+                    model_path
                 )
             else:
                 early_epoch -= 1
