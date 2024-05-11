@@ -9,11 +9,7 @@ TRAIN:
   # Add id to continue training (to continue training => continue_training = 'must')
   run_id: 
   continue_training: 
-  # Loss (ce, focal, dice)
   loss_type: ce
-  alpha: 0.25
-  gamma: 2
-  smooth: 1e-7
   # Base Arch
   clip_pretrain: pretrain/RN50.pt
   input_size: 384
