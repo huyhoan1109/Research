@@ -58,7 +58,7 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
         dist.all_reduce(loss.detach())
         dist.all_reduce(iou)
         dist.all_reduce(pr50)
-        dist.all_gather(dice_coef)
+        dist.all_reduce(dice_coef)
         
         loss = loss / dist.get_world_size()
         iou = iou / dist.get_world_size()
