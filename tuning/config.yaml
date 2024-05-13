@@ -3,6 +3,7 @@ continue_training:
 prefix_name:
 clip_pretrain:
 resume: 
+early_stop:
 input_size: 224
 word_len: 77
 seed: 0

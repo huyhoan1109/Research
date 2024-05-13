@@ -34,7 +34,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='Finetuning CLIP')
     parser.add_argument('--config', default='path to xxx.yaml', type=str, help='config file')
     parser.add_argument('--clip_pretrain', default=None, type=str, help='load pretrained weight')
-    parser.add_argument('--resume', nargs='?', help='load resume weight')
+    parser.add_argument('--resume', default=None, type=str, help='load resume weight')
     parser.add_argument('--prefix_name', default=None, type=str, help='save weight prefix name')
     parser.add_argument('--run_id', default=None, type=str, help='log run id')
     parser.add_argument('--continue_training', default=None, type=str, help='continue logging')

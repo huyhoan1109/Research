@@ -75,7 +75,7 @@ def train_model(cfg, model, loaders, optimizer, lr_scheduler, logger):
     else:
         start_epoch = 0
         best_loss = float('inf')
-    early_epoch = cfg.early_stop
+    early_epoch = cfg['early_stop']
     for epoch in range(start_epoch, cfg['epochs']):
         epoch_log = epoch + 1
         train_batch(cfg, epoch_log, model, loaders['train'], optimizer, logger)
@@ -90,7 +90,7 @@ def train_model(cfg, model, loaders, optimizer, lr_scheduler, logger):
         best_loss = cur_loss if cur_loss <= best_loss else best_loss
         if best_loss == cur_loss and early_epoch > 0:
             save_checkpoint(cfg, epoch_log, best_loss, model, optimizer, lr_scheduler)
-            early_epoch = cfg.early_stop
+            early_epoch = cfg['early_stop']
         else:
             early_epoch -= 1
             if early_epoch == 0:
