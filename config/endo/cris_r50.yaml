@@ -47,3 +47,5 @@ Distributed:
   multiprocessing_distributed: True
   world_size: 1
   rank: 0
+TEST:
+  visualize: True

@@ -13,6 +13,7 @@ from engine.engine_endo import inference
 from model import build_segmenter
 from endoscopy.dataset import EndosDataset
 from utils.misc import setup_logger
+import torch.distributed as dist
 
 warnings.filterwarnings("ignore")
 cv2.setNumThreads(0)
@@ -52,12 +53,20 @@ def main():
         mode="a"
     )
     logger.info(args)
+    
+    dist.init_process_group(
+        backend=args.dist_backend,
+        init_method=args.dist_url,
+        world_size=args.world_size,
+        rank=args.rank
+    )
 
     # build dataset & dataloader
     test_data = EndosDataset(
+        root_path=args.root_data,
         input_size=args.input_size,
         word_length=args.word_len,
-        mode='test'
+        split='test'
     )
     test_loader = DataLoader(
         test_data,

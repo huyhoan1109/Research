@@ -10,7 +10,6 @@ import torch.nn.functional as F
 import wandb
 from loguru import logger
 from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather, trainMetricGPU)
-
 from endoscopy.transform import *
 
 def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogger=None):
@@ -150,12 +149,12 @@ def inference(test_loader, model, args):
     time.sleep(2)
     for id, data in enumerate(tbar):
         # data
-        img = data['image'].cuda(non_blocking=True)
+        imgs = data['image'].cuda(non_blocking=True)
         target = data['mask'].cuda(non_blocking=True)
-        word = data['word'].cuda(non_blocking=True)
+        words = data['word'].cuda(non_blocking=True)
         prompts = data['prompt']
         img_ids = data['img_id']
-        preds = model(img, word)
+        preds = model(imgs, words)
         preds = torch.sigmoid(preds)
         if preds.shape[-2:] != target.shape[-2:]:
             preds = F.interpolate(
@@ -175,16 +174,18 @@ def inference(test_loader, model, args):
             dice_coef_list.append(dice_coef)
             if args.visualize:
                 # dump image & mask
+                mask = np.array(mask.cpu()*255, dtype=np.uint8)
                 mask_name = '{}-mask.png'.format(img_id)
                 cv2.imwrite(filename=os.path.join(args.vis_dir, mask_name), img=mask)
-                pred = np.array(pred*255, dtype=np.uint8)
+                pred = np.array(pred.cpu()*255, dtype=np.uint8)
                 pred_name = '{}-iou={:.2f}-{}.png'.format(img_id, iou * 100, sent)
                 cv2.imwrite(filename=os.path.join(args.vis_dir, pred_name), img=pred)
+
     
     logger.info('=> Metric Calculation <=')
-    iou_list = torch.stack(iou_list).to(img.device)
+    iou_list = torch.stack(iou_list).to(imgs.device)
     iou_list = concat_all_gather(iou_list)
-    dice_coef_list = torch.stack(dice_coef_list).to(img.device)
+    dice_coef_list = torch.stack(dice_coef_list).to(imgs.device)
     dice_coef_list = concat_all_gather(dice_coef_list)
     prec_list = []
     for thres in torch.arange(0.5, 1.0, 0.1):

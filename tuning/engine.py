@@ -56,12 +56,12 @@ def load_checkpoint(cfg, model, optimizer, lr_scheduler):
     lr_scheduler.load_state_dict(checkpoint['scheduler'])
     return checkpoint['epoch'], checkpoint['loss']
 
-def save_checkpoint(cfg, epoch_log, losses, model, optimizer, lr_scheduler):
+def save_checkpoint(cfg, epoch_log, loss, model, optimizer, lr_scheduler):
     model_path = os.path.join(cfg['output_dir'], f"{cfg['prefix_name']}_best_model.pth")
     torch.save(
         {
             'epoch': epoch_log,
-            'loss': losses['cur'],
+            'loss': loss,
             'model': model.state_dict(),
             'optimizer': optimizer.state_dict(),
             'scheduler': lr_scheduler.state_dict()
