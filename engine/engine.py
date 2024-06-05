@@ -27,7 +27,7 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
         prefix="Training: Epoch=[{}/{}] ".format(epoch, args.epochs)
     )
     model.train()
-    time.sleep(2)
+    time.sleep(1)
     end = time.time()
 
     # size_list = [320, 352, 384, 416, 448, 480, 512]
@@ -99,7 +99,7 @@ def validate(val_loader, model, epoch, args):
     iou_list = []
     dice_coef_list = []
     model.eval()
-    time.sleep(2)
+    time.sleep(1)
     for imgs, texts, param in val_loader:
         # data
         imgs = imgs.cuda(non_blocking=True)
@@ -164,7 +164,7 @@ def inference(test_loader, model, args):
     dice_coef_list = []
     tbar = tqdm(test_loader, desc='Inference:', ncols=100)
     model.eval()
-    time.sleep(2)
+    time.sleep(1)
     for img, param in tbar:
         # data
         img = img.cuda(non_blocking=True)

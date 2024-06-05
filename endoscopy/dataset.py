@@ -6,14 +6,24 @@ from utils.simple_tokenizer import Tokenizer
 import cv2
 from endoscopy.transform import *
 
-ROOT_PATH = '/mnt/tuyenld/data/endoscopy/full_endo_data'
+ENDO_ROOT = '/mnt/tuyenld/data/endoscopy/full_endo_data'
+TASKS = {
+    0: 'full_endo_data',
+    1: 'polyp',
+    2: 'ung_thu_da_day_20230620', 
+    3: 'ung_thu_thuc_quan_20230620', 
+    4: 'viem_da_day_20230620', 
+    5: 'viem_thuc_quan_20230620', 
+    6: 'viem_loet_hoanh_ta_trang_20230620',
+}
 
 class EndosDataset(Dataset):
     def __init__(
             self, 
             input_size,
             word_length,
-            root_path=ROOT_PATH,
+            task = 0,
+            root_path = ENDO_ROOT,
             dataset='./endoscopy', 
             split = 'train', 
             add_color = True,
@@ -21,25 +31,28 @@ class EndosDataset(Dataset):
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
         ):
         super().__init__()
+        self.split = split
+        self.task = task
         self.image_path = root_path + '/images'
         self.mask_path = root_path + '/mask_images'
+        if TASKS[task] == 'full_endo_data':
+            image_file = json.load(open(f'{dataset}/split_full_endo.json'))[split]['images']
+        elif task == 1:
+            image_file = json.load(open(f'{dataset}/split_polyp.json'))[split]['images']
+        else:
+            image_file = json.load(open(f'{dataset}/split_lesion.json'))[TASKS[task]][split]['images']
+        metadata = json.load(open(f'{dataset}/metadata.json'))
+        self.data = {}
+        for id, key in enumerate(image_file):
+            new_key = key.rsplit('/')[-1].rsplit('.')[0]
+            self.data[id] = metadata[new_key]
         self.input_size = (input_size, input_size)
         self.word_length = word_length
         self.tokenizer = Tokenizer()
-        self.split = split
         self.device = device
         self.add_color = add_color
         self.add_lesion = add_lesion
         self.transform = init_transform(input_size, split=split)
-
-        with open(f'{dataset}/{split}.txt', 'r') as f:
-            split_ids = f.readlines()
-            f.close()
-        metadata = json.load(open(f'{dataset}/metadata.json'))
-        self.data = dict()
-        for id, split_id in enumerate(split_ids):
-            split_id = split_id.strip('\n')
-            self.data[id] = metadata[split_id]
 
     def __len__(self):
         return len(self.data.keys())

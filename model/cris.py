@@ -59,6 +59,6 @@ class CRIS(nn.Module):
             if pred.shape[-2:] != mask.shape[-2:]:
                 mask = F.interpolate(mask, pred.shape[-2:], mode='nearest').detach()
             loss = self.loss_func(pred, mask) 
-            return pred.detach(), mask, loss
+            return pred, mask, loss
         else:
             return pred.detach()

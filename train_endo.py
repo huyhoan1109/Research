@@ -21,7 +21,7 @@ from torch.utils.data.distributed import DistributedSampler
 from loguru import logger
 from torch.optim.lr_scheduler import MultiStepLR
 
-from endoscopy.dataset import EndosDataset
+from endoscopy.dataset import EndosDataset, TASKS
 import utils.config as config
 from utils.misc import WandbLogger
 from engine.engine_endo import train, validate
@@ -42,7 +42,7 @@ def get_parser():
     parser.add_argument('--tsg', default=0, type=int, help='add transformer scale gate.')
     parser.add_argument('--jit', default=0, type=int, help='jit mode.')
     parser.add_argument('--early_stop', default=10, type=int, help='set early stop epoch')
-    parser.add_argument('--root_data', type=str, help='load root path for endoscopy data')
+    parser.add_argument('--task', default=0, choices=TASKS.keys(), help='Choose task')
     parser.add_argument('--opts', default=None, nargs=argparse.REMAINDER, help='override some settings in the config.')
     args = parser.parse_args()
     assert args.config is not None
@@ -52,7 +52,7 @@ def get_parser():
     cfg.__setattr__('tsg', args.tsg)
     cfg.__setattr__('jit', args.jit)
     cfg.__setattr__('early_stop', args.early_stop)
-    cfg.__setattr__('root_data', args.root_data)
+    cfg.__setattr__('task', args.task)
     return cfg
 
 
@@ -135,13 +135,13 @@ def main_worker(gpu, args):
     args.workers = int((args.workers + args.ngpus_per_node - 1) / args.ngpus_per_node)
     
     train_data = EndosDataset(
-        root_path=args.root_data,
+        task=args.task,
         input_size=args.input_size,
         word_length=args.word_len,
         split='train',
     )
     val_data = EndosDataset(
-        root_path=args.root_data,
+        task=args.task,
         input_size=args.input_size,
         word_length=args.word_len,
         split='test',
@@ -223,7 +223,7 @@ def main_worker(gpu, args):
             if iou >= best_IoU and early_epoch > 0:
                 best_IoU = iou
                 early_epoch = args.early_stop
-                model_name = f"best_model_tsg_{args.input_size}.pth" if args.tsg else f"best_model_base_{args.input_size}.pth"
+                model_name = f"best_model_sg.pth" if args.tsg else f"best_model_base.pth"
                 model_path = os.path.join(args.output_dir, model_name)
                 torch.save(
                     {
@@ -245,7 +245,7 @@ def main_worker(gpu, args):
         scheduler.step(epoch_log)
         torch.cuda.empty_cache()
 
-    time.sleep(2)
+    time.sleep(1)
     if dist.get_rank() == 0:
         wlogger.finish()
 

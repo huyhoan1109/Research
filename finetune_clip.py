@@ -15,8 +15,8 @@ def load_yaml(path):
     with open(path) as stream:
         try:
             return yaml.safe_load(stream)
-        except yaml.YAMLError as exc:
-            print(exc)
+        except yaml.YAMLError:
+            print(f'Error when reading {path}')
 
 def load_config(args, yaml_cfg):
     for key in yaml_cfg.keys():

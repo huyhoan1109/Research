@@ -213,7 +213,7 @@ def main_worker(gpu, args):
             if iou >= best_IoU and early_epoch > 0:
                 best_IoU = iou
                 early_epoch = args.early_stop
-                model_name = f"best_model_tsg_{args.input_size}.pth" if args.tsg else f"best_model_base_{args.input_size}.pth"
+                model_name = f"best_model_sg.pth" if args.tsg else f"best_model_base.pth"
                 model_path = os.path.join(args.output_dir, model_name)
                 torch.save(
                     {
@@ -235,7 +235,7 @@ def main_worker(gpu, args):
         scheduler.step(epoch_log)
         torch.cuda.empty_cache()
 
-    time.sleep(2)
+    time.sleep(1)
     if dist.get_rank() == 0:
         wlogger.finish()
 
