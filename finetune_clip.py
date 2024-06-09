@@ -4,7 +4,7 @@ import torch
 import argparse
 from endoscopy.dataset import EndosDataset
 from tuning.clip import build_model
-from torch.optim.lr_scheduler import MultiStepLR
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 from tuning.engine import train_model, get_sampler
 from dotenv import dotenv_values
@@ -76,8 +76,7 @@ if __name__ == '__main__':
     model = build_clip(args)
     logger = init_logger(args)
     optimizer = torch.optim.Adam(model.parameters(), lr=args['base_lr'], weight_decay=args['weight_decay'])
-    scheduler = MultiStepLR(optimizer, milestones=args['milestones'], gamma=args['lr_decay'])
-    
+
     train_data = EndosDataset(
         input_size=args['input_size'],
         word_length=args['word_len'],
@@ -100,7 +99,7 @@ if __name__ == '__main__':
         pin_memory=True,
         sampler=train_sampler,
         shuffle=False,
-        drop_last=False
+        drop_last=True
     )
 
     valid_loader = DataLoader(
@@ -117,5 +116,12 @@ if __name__ == '__main__':
         'train': train_loader,
         'valid': valid_loader
     }
+
+    scheduler = CosineAnnealingLR(
+        optimizer,
+        T_max = args['train_worker'] * len(train_loader) * args['epochs'],
+        eta_min = args['base_lr'] * args['lr_decay']
+    )
+
     train_model(args, model, loaders, optimizer, scheduler, logger)
     finish_logger()

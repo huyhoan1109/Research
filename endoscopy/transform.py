@@ -1,30 +1,19 @@
-import numpy as np
-from PIL import Image
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-
-
-try:
-    from torchvision.transforms import InterpolationMode
-    BICUBIC = InterpolationMode.BICUBIC
-except ImportError:
-    BICUBIC = Image.BICUBIC
-
-mean = [0.485, 0.456, 0.406]
-std = [0.229, 0.224, 0.225]
+import torch
+from torchvision.transforms import v2
 
 def init_transform(size, split='train'):
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
     if split == 'train' or split == 'val':
-        return A.Compose([
-            A.Resize(size, size),
-            A.RandomResizedCrop(size, size, scale=(0.2, 1.0), interpolation=3),
-            A.HorizontalFlip(),
-            A.Normalize(mean=mean, std=std),
-            ToTensorV2()
+        return v2.Compose([
+            v2.RandomResizedCrop(size=(size, size), antialias=True),
+            v2.RandomHorizontalFlip(p=0.5),
+            v2.ToDtype(torch.float32, scale=True),
+            v2.Normalize(mean=mean, std=std),
         ])
     else:
-        return A.Compose([
-            A.Resize(size, size),
-            A.Normalize(mean=mean, std=std),
-            ToTensorV2()
+        return v2.Compose([
+            v2.Resize(size=(size, size)),
+            v2.ToDtype(torch.float32, scale=True),
+            v2.Normalize(mean=mean, std=std),
         ])

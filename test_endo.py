@@ -11,8 +11,8 @@ from loguru import logger
 import utils.config as config
 from engine.engine_endo import inference
 from model import build_segmenter
-from endoscopy.dataset import EndosDataset, TASKS
-from utils.misc import setup_logger
+from endoscopy.dataset import EndosDataset, DATASETS
+from utils.misc import setup_logger, count_parameters
 import torch.distributed as dist
 
 warnings.filterwarnings("ignore")
@@ -24,7 +24,7 @@ def get_parser():
     parser.add_argument('--config', default='path to xxx.yaml', type=str, help='config file')
     parser.add_argument('--tsg', default=0, type=int, help='add transformer scale gate.')
     parser.add_argument('--jit', default=0, type=int, help='jit mode.')
-    parser.add_argument('--task', default=0, choices=TASKS.keys(), type=int, help='Choose task.')
+    parser.add_argument('--task', default=0, choices=DATASETS.keys(), type=int, help='Choose task.')
     parser.add_argument('--opts', default=None, nargs=argparse.REMAINDER, help='override some settings in the config.')
     args = parser.parse_args()
     assert args.config is not None
@@ -42,7 +42,7 @@ def main():
     args = get_parser()
     args.output_dir = os.path.join(args.output_folder, args.exp_name)
     if args.visualize:
-        args.vis_dir = os.path.join(args.output_dir, TASKS[args.task], "vis")
+        args.vis_dir = os.path.join(args.output_dir, DATASETS[args.task], "vis")
         os.makedirs(args.vis_dir, exist_ok=True)
 
     # logger
@@ -79,6 +79,7 @@ def main():
     model, _ = build_segmenter(args)
     model = torch.nn.DataParallel(model).cuda()
     logger.info(model)
+    logger.info(f'Total parameters: {count_parameters(model)}')
     if os.path.isfile(args.resume):
         logger.info("=> loading checkpoint '{}'".format(args.resume))
         checkpoint = torch.load(args.resume)

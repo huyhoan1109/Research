@@ -12,7 +12,7 @@ import utils.config as config
 from engine.engine import inference
 from model import build_segmenter
 from utils.dataset import RefDataset
-from utils.misc import setup_logger
+from utils.misc import setup_logger, count_parameters
 
 warnings.filterwarnings("ignore")
 cv2.setNumThreads(0)
@@ -73,7 +73,7 @@ def main():
     model, _ = build_segmenter(args)
     model = torch.nn.DataParallel(model).cuda()
     logger.info(model)
-
+    logger.info(f'Total parameters: {count_parameters(model)}')
     args.resume = os.path.join(args.resume)
     if os.path.isfile(args.resume):
         logger.info("=> loading checkpoint '{}'".format(args.resume))

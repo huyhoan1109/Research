@@ -18,7 +18,7 @@ import torch.optim
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler 
 from loguru import logger
-from torch.optim.lr_scheduler import MultiStepLR
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import utils.config as config
 import wandb
@@ -37,7 +37,7 @@ def get_parser():
     parser.add_argument('--config', default='path to xxx.yaml', type=str, help='config file')
     parser.add_argument('--tsg', default=0, type=int, help='add transformer scale gate.')
     parser.add_argument('--jit', default=0, type=int, help='jit mode.')
-    parser.add_argument('--early_stop', default=10, type=int, help='set early stop epoch')
+    parser.add_argument('--early_stop', default=30, type=int, help='set early stop epoch')
     parser.add_argument('--opts', default=None, nargs=argparse.REMAINDER, help='override some settings in the config.')
     args = parser.parse_args()
     assert args.config is not None
@@ -103,6 +103,7 @@ def main_worker(gpu, args):
     if args.sync_bn:
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     logger.info(model)
+    logger.info(f'Total parameters: {count_parameters(model)}')
     model = nn.parallel.DistributedDataParallel(
         model.cuda(),
         device_ids=[args.gpu],
@@ -111,7 +112,7 @@ def main_worker(gpu, args):
 
     # build optimizer & lr scheduler
     optimizer = torch.optim.Adam(param_list, lr=args.base_lr, weight_decay=args.weight_decay)
-    scheduler = MultiStepLR(optimizer, milestones=args.milestones, gamma=args.lr_decay)
+
     scaler = amp.GradScaler()
 
     # build dataset
@@ -149,7 +150,6 @@ def main_worker(gpu, args):
     train_loader = DataLoader(
         train_data,
         batch_size=args.batch_size,
-        shuffle=False,
         num_workers=args.workers,
         pin_memory=True,
         worker_init_fn=init_fn,
@@ -159,11 +159,16 @@ def main_worker(gpu, args):
     val_loader = DataLoader(
         val_data,
         batch_size=args.batch_size_val,
-        shuffle=False,
         num_workers=args.workers_val,
         pin_memory=True,
         sampler=val_sampler,
         drop_last=False
+    )
+
+    scheduler = CosineAnnealingLR(
+        optimizer,
+        T_max = args.batch_size * len(train_loader) * args.epochs,
+        eta_min = args.base_lr * args.lr_decay,
     )
 
     best_IoU = 0.0
@@ -235,7 +240,6 @@ def main_worker(gpu, args):
         scheduler.step(epoch_log)
         torch.cuda.empty_cache()
 
-    time.sleep(1)
     if dist.get_rank() == 0:
         wlogger.finish()
 

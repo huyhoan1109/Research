@@ -3,7 +3,7 @@ import cv2
 import argparse
 import numpy as np
 from tqdm import tqdm
-from endoscopy.dataset import TASKS, ENDO_ROOT
+from endoscopy.dataset import DATASETS, ENDO_ROOT
 
 MODEL = {
     'r50': 'CRIS_R50',
@@ -24,13 +24,13 @@ def draw_masked_image(image, mask, name='drawed.png'):
 
 def get_args():
     parser = argparse.ArgumentParser(description='Draw mask')
-    parser.add_argument('--task', default=0, choices=TASKS.keys(), type=str, help='config file')
+    parser.add_argument('--task', default=0, choices=DATASETS.keys(), type=str, help='config file')
     parser.add_argument('--model', type=str, choices=MODEL.keys(), help='add transformer scale gate.')
 
 if __name__ == '__main__':
     args = get_args()
-    vis_folder = f'exp/endo/{MODEL[args.model_id]}/{TASKS[args.task]}/vis'
-    draw_folder = f'exp/endo/{MODEL[args.model_id]}/{TASKS[args.model]}/draw'
+    vis_folder = f'exp/endo/{MODEL[args.model_id]}/{DATASETS[args.task]}/vis'
+    draw_folder = f'exp/endo/{MODEL[args.model_id]}/{DATASETS[args.model]}/draw'
     os.makedirs(draw_folder, exist_ok=True)
     file_list = [f for f in os.listdir(vis_folder) if os.path.isfile(os.path.join(vis_folder, f))]
     for file_name in tqdm(file_list):

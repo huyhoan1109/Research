@@ -26,7 +26,7 @@ class CRIS(nn.Module):
                                           dropout=cfg.dropout,
                                           return_intermediate=cfg.intermediate)
         # Projector
-        self.proj = Projector(cfg.word_dim, cfg.vis_dim // 2, 3)
+        self.proj = Projector(cfg.num_classes, cfg.word_dim, cfg.vis_dim // 2, 3)
         self.loss_func = build_loss(cfg.loss_type)
 
     def forward(self, img, word, mask=None):
@@ -51,7 +51,7 @@ class CRIS(nn.Module):
         out = self.decoder(fusion, word, pad_mask)
         out = out.reshape(b, h, w, -1).permute(0, 3, 1, 2)
         
-        # pred: b, 1, 104, 104
+        # pred: b, num_classes, 104, 104
         pred = self.proj(out, state)
 
         if self.training:

@@ -9,7 +9,7 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from loss import build_loss
 from loguru import logger
-from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather, trainMetricGPU)
+from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather, CalculateMetricGPU)
 from endoscopy.transform import *
 
 def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogger=None):
@@ -26,7 +26,6 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
         prefix="Training: Epoch=[{}/{}] ".format(epoch, args.epochs)
     )
     model.train()
-    time.sleep(1)
     end = time.time()
 
     # size_list = [320, 352, 384, 416, 448, 480, 512]
@@ -38,7 +37,7 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
         # data
         image = data['image'].cuda(non_blocking=True)
         text = data['word'].cuda(non_blocking=True)
-        target = data['mask'].cuda(non_blocking=True).unsqueeze(1)
+        target = data['mask'].cuda(non_blocking=True)
 
         # forward
         with amp.autocast():
@@ -53,7 +52,7 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
         scaler.update()
 
         # metric
-        iou, pr50, dice_coef = trainMetricGPU(pred, target, 0.35, 0.5)
+        iou, pr50, dice_coef = CalculateMetricGPU(pred, target, 0.35, 0.5)
         dist.all_reduce(loss.detach())
         dist.all_reduce(iou)
         dist.all_reduce(pr50)
@@ -94,7 +93,6 @@ def validate(val_loader, model, epoch, args):
     iou_list = []
     dice_coef_list = []
     model.eval()
-    time.sleep(1)
     for id, data in enumerate(val_loader):
         # data
         imgs = data['image'].cuda(non_blocking=True)
@@ -120,8 +118,8 @@ def validate(val_loader, model, epoch, args):
         dice_coef_list.append(dice_coef)
 
     iou_list = torch.stack(iou_list).to(imgs.device)
-    iou_list = concat_all_gather(iou_list)
     dice_coef_list = torch.stack(dice_coef_list).to(imgs.device)
+    iou_list = concat_all_gather(iou_list)
     dice_coef_list = concat_all_gather(dice_coef_list)
     prec_list = []
     for thres in torch.arange(0.5, 1.0, 0.1):
@@ -146,7 +144,6 @@ def inference(test_loader, model, args):
     dice_coef_list = []
     tbar = tqdm(test_loader, desc='Inference:', ncols=100)
     model.eval()
-    time.sleep(1)
     for id, data in enumerate(tbar):
         # data
         imgs = data['image'].cuda(non_blocking=True)

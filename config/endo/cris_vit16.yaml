@@ -6,7 +6,7 @@ TRAIN:
   continue_training: 
   loss_type: bce_dice
   # Base Arch
-  clip_pretrain: pretrain/endo-ViT-B-16.pt
+  clip_pretrain: pretrain/ViT-B-16.pt
   input_size: 384
   word_len: 22
   word_dim: 512
@@ -24,7 +24,6 @@ TRAIN:
   workers: 32  # data loader workers
   workers_val: 16
   epochs: 100
-  milestones: [35]
   start_epoch: 0
   batch_size: 32  # batch size for training
   batch_size_val: 32  # batch size for validation during training, memory and speed tradeoff

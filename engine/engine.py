@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import wandb
 from loguru import logger
 from utils.simple_tokenizer import Tokenizer
-from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather, trainMetricGPU)
+from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather, CalculateMetricGPU)
 
 
 def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogger=None):
@@ -27,7 +27,6 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
         prefix="Training: Epoch=[{}/{}] ".format(epoch, args.epochs)
     )
     model.train()
-    time.sleep(1)
     end = time.time()
 
     # size_list = [320, 352, 384, 416, 448, 480, 512]
@@ -57,7 +56,7 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
         scaler.update()
 
         # metric
-        iou, pr50, dice_coef = trainMetricGPU(pred, target, 0.35, 0.5)
+        iou, pr50, dice_coef = CalculateMetricGPU(pred, target, 0.35, 0.5)
         dist.all_reduce(loss.detach())
         dist.all_reduce(iou)
         dist.all_reduce(pr50)
@@ -99,7 +98,6 @@ def validate(val_loader, model, epoch, args):
     iou_list = []
     dice_coef_list = []
     model.eval()
-    time.sleep(1)
     for imgs, texts, param in val_loader:
         # data
         imgs = imgs.cuda(non_blocking=True)
@@ -164,7 +162,6 @@ def inference(test_loader, model, args):
     dice_coef_list = []
     tbar = tqdm(test_loader, desc='Inference:', ncols=100)
     model.eval()
-    time.sleep(1)
     for img, param in tbar:
         # data
         img = img.cuda(non_blocking=True)
