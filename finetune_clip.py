@@ -38,7 +38,7 @@ def get_args():
     parser.add_argument('--prefix_name', default=None, type=str, help='save weight prefix name')
     parser.add_argument('--run_id', nargs='?', help='log run id')
     parser.add_argument('--continue_training', nargs='?', help='continue logging')
-    parser.add_argument('--early_stop', default=30, type=int, help='early stop')
+    parser.add_argument('--early_stop', default=50, type=int, help='early stop')
     args = parser.parse_args()
     yaml_cfg = load_yaml(args.config)
     cfg = load_config(args, yaml_cfg)
@@ -62,6 +62,7 @@ def init_logger(args):
     wlogger.define_metric('eval/step')
     wlogger.define_metric(
         'training/loss', step_metric='training/step'
+        'training/lr', step_metric='training/step'
     )
     wlogger.define_metric(
         'eval/loss', step_metric='eval/step'
@@ -81,14 +82,14 @@ if __name__ == '__main__':
         input_size=args['input_size'],
         word_length=args['word_len'],
         split='train',
-        step='pretrain'
+        step='pretrain_clip'
     )
 
     valid_data = EndosDataset(
         input_size=args['input_size'],
         word_length=args['word_len'],
         split='test',
-        step='pretrain'
+        step='pretrain_clip'
     )
 
     train_sampler = get_sampler(train_data, args['seed'])

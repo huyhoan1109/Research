@@ -82,9 +82,9 @@ def validate(val_loader, model, epoch, args):
         # data
         if idx == 5:
             break
-        imgs = data['image']
-        texts = data['word']
-        masks = data['mask']
+        imgs = data['image'].cuda()
+        texts = data['word'].cuda()
+        masks = data['mask'].cuda()
         # inference
         preds = model(imgs, texts)
         preds = torch.sigmoid(preds)
@@ -137,9 +137,9 @@ def inference(test_loader, model, args):
     for idx, data in enumerate(tbar):
         if idx == 10:
             break
-        imgs = data['image']
-        masks = data['mask']
-        words = data['word']
+        imgs = data['image'].cuda()
+        masks = data['mask'].cuda()
+        words = data['word'].cuda()
         prompts = data['prompt']
         img_ids = data['img_id']
         labels = data['label']  

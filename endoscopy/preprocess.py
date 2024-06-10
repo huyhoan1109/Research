@@ -95,3 +95,33 @@ def prepare_lesion_split(
         
         with open(dest, 'w') as fp:
             json.dump(split_lesion, fp, sort_keys=True, indent=4)
+
+def prepare_pretrain_clip_split(
+        src_file='./endoscopy/pretrain_lesion_split.json', 
+        dest_file='./endoscopy/pretrain_clip_split.json',
+    ):
+    src_split =  json.load(open(src_file))
+    train_data = src_split['train']
+    test_data = src_split['test']
+    train_ids = []
+    test_ids = []
+    for data in train_data:
+        img_id = data.rsplit('.')[0].rsplit('-')[0]
+        if img_id not in train_ids:
+            train_ids.append(img_id)
+    for data in test_data:
+        img_id = data.rsplit('.')[0].rsplit('-')[0]
+        if img_id not in test_ids:
+            test_ids.append(img_id)
+    pretrain_clip_split = {
+        'train': train_ids,
+        'test': test_ids
+    }
+    with open(dest_file, 'w') as fp:
+        json.dump(pretrain_clip_split, fp, sort_keys=True, indent=4)
+
+
+if __name__ == '__main__':
+    prepare_lesion_split()
+    prepare_pretrain_split()
+    prepare_pretrain_clip_split()

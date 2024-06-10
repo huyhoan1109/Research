@@ -7,9 +7,9 @@ early_stop:
 input_size: 224
 word_len: 22
 seed: 2024
-epochs: 60
+epochs: 100
 base_lr: 0.0001
-weight_decay: 0.
+weight_decay: 0.0005
 lr_decay: 0.1
 output_dir: exp
 train_batch: 32
@@ -17,4 +17,4 @@ train_worker: 16
 valid_batch: 32
 valid_worker: 16
 print_freq: 100
-early_stop: 30
+early_stop: 50

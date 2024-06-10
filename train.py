@@ -37,7 +37,7 @@ def get_parser():
     parser.add_argument('--config', default='path to xxx.yaml', type=str, help='config file')
     parser.add_argument('--tsg', default=0, type=int, help='add transformer scale gate.')
     parser.add_argument('--jit', default=0, type=int, help='jit mode.')
-    parser.add_argument('--early_stop', default=30, type=int, help='set early stop epoch')
+    parser.add_argument('--early_stop', default=50, type=int, help='set early stop epoch')
     parser.add_argument('--opts', default=None, nargs=argparse.REMAINDER, help='override some settings in the config.')
     args = parser.parse_args()
     assert args.config is not None

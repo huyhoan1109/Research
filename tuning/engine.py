@@ -12,7 +12,7 @@ def get_sampler(dataset, seed):
     sampler = RandomSampler(dataset, generator=generator)
     return sampler
 
-def train_batch(cfg, epoch, model, train_loader, optimizer, logger):
+def train_batch(cfg, epoch, model, train_loader, optimizer, scheduler, logger):
     model.train()
     loss_meter = AverageMeter('Train loss')
     progress_meter = ProgressMeter(
@@ -33,10 +33,12 @@ def train_batch(cfg, epoch, model, train_loader, optimizer, logger):
             logger.log(
                 {
                     'training/loss': loss_meter.val,
+                    'training/lr': scheduler.get_last_lr()[-1].item(),
                     'training/step': epoch * len(train_loader) + (i + 1)
                 },
                 commit=True
             )
+    scheduler.step()
 
 def validate(model, valid_loader):
     model.eval()
@@ -49,14 +51,14 @@ def validate(model, valid_loader):
     print(f"Valid loss: {loss_meter.avg}")
     return loss_meter.avg
 
-def load_checkpoint(cfg, model, optimizer, lr_scheduler):
+def load_checkpoint(cfg, model, optimizer, scheduler):
     checkpoint = torch.load(cfg['resume'])
     model.load_state_dict(checkpoint['model'])
     optimizer.load_state_dict(checkpoint['optimizer'])
-    lr_scheduler.load_state_dict(checkpoint['scheduler'])
+    scheduler.load_state_dict(checkpoint['scheduler'])
     return checkpoint['epoch'], checkpoint['loss']
 
-def save_checkpoint(cfg, epoch_log, loss, model, optimizer, lr_scheduler):
+def save_checkpoint(cfg, epoch_log, loss, model, optimizer, scheduler):
     model_path = os.path.join(cfg['output_dir'], f"{cfg['prefix_name']}_best_model.pth")
     torch.save(
         {
@@ -64,21 +66,21 @@ def save_checkpoint(cfg, epoch_log, loss, model, optimizer, lr_scheduler):
             'loss': loss,
             'model': model.state_dict(),
             'optimizer': optimizer.state_dict(),
-            'scheduler': lr_scheduler.state_dict()
+            'scheduler': scheduler.state_dict()
         }, 
         model_path
     )
 
-def train_model(cfg, model, loaders, optimizer, lr_scheduler, logger):
+def train_model(cfg, model, loaders, optimizer, scheduler, logger):
     if cfg['resume']:
-        start_epoch, best_loss = load_checkpoint(cfg, model, optimizer, lr_scheduler)
+        start_epoch, best_loss = load_checkpoint(cfg, model, optimizer, scheduler)
     else:
         start_epoch = 0
         best_loss = float('inf')
     early_epoch = cfg['early_stop']
     for epoch in range(start_epoch, cfg['epochs']):
         epoch_log = epoch + 1
-        train_batch(cfg, epoch_log, model, loaders['train'], optimizer, logger)
+        train_batch(cfg, epoch_log, model, loaders['train'], optimizer, scheduler, logger)
         cur_loss = validate(model, loaders['valid'])
         logger.log(
             {
@@ -89,10 +91,9 @@ def train_model(cfg, model, loaders, optimizer, lr_scheduler, logger):
         )
         best_loss = cur_loss if cur_loss <= best_loss else best_loss
         if best_loss == cur_loss and early_epoch > 0:
-            save_checkpoint(cfg, epoch_log, best_loss, model, optimizer, lr_scheduler)
+            save_checkpoint(cfg, epoch_log, best_loss, model, optimizer, scheduler)
             early_epoch = cfg['early_stop']
         else:
             early_epoch -= 1
             if early_epoch == 0:
                 break
-        lr_scheduler.step(epoch_log)
