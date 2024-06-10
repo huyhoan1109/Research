@@ -285,7 +285,7 @@ class Projector(nn.Module):
         self.in_dim = in_dim
         self.kernel_size = kernel_size
         self.num_classes = num_classes
-        self.inter_dim = in_dim // 2
+        self.inter_dim = in_dim # can choose any as you want
         # visual projector
         self.vis = nn.Sequential(  # os16 -> os4
             nn.Upsample(scale_factor=2, mode='bilinear'),

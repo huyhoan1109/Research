@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from loguru import logger
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-from endoscopy.dataset import EndosDataset, DATASETS
+from endoscopy.dataset import EndosDataset, STEPS
 import utils.config as config
 from utils.misc import WandbLogger, count_parameters
 from engine.engine_endo_single import train, validate
@@ -42,7 +42,7 @@ def get_parser():
     parser.add_argument('--tsg', default=0, type=int, help='add transformer scale gate.')
     parser.add_argument('--jit', default=0, type=int, help='jit mode.')
     parser.add_argument('--early_stop', default=30, type=int, help='set early stop epoch')
-    parser.add_argument('--task', type=int, default=0, choices=DATASETS.keys(), help='Choose task')
+    parser.add_argument('--step', choices=STEPS.keys(), help='Choose step')
     parser.add_argument('--opts', default=None, nargs=argparse.REMAINDER, help='override some settings in the config.')
     args = parser.parse_args()
     assert args.config is not None
@@ -52,7 +52,8 @@ def get_parser():
     cfg.__setattr__('tsg', args.tsg)
     cfg.__setattr__('jit', args.jit)
     cfg.__setattr__('early_stop', args.early_stop)
-    cfg.__setattr__('task', args.task)
+    cfg.__setattr__('step', args.step)
+    cfg.__setattr__('num_classes', 1)
     return cfg
 
 
@@ -68,7 +69,7 @@ def main_worker(args):
     wandb.login(key=env_var['API_KEY'])
     wlogger = WandbLogger(args)
     wlogger.init_logger(
-        project="CRIS",
+        project="CRIS-ENDO",
         mode="online"
     )
 
@@ -90,16 +91,16 @@ def main_worker(args):
     scaler = amp.GradScaler()
     
     train_data = EndosDataset(
-        task=args.task,
         input_size=args.input_size,
         word_length=args.word_len,
         split='train',
+        step=args.step
     )
     val_data = EndosDataset(
-        task=args.task,
         input_size=args.input_size,
         word_length=args.word_len,
         split='test',
+        step=args.step
     )
 
     train_sampler = get_sampler(train_data, args.manual_seed)
@@ -153,12 +154,13 @@ def main_worker(args):
         train(train_loader, model, optimizer, scheduler, scaler, epoch_log, args, wlogger)
 
         # evaluation
-        iou, prec_dict, dice_coef = validate(val_loader, model, epoch_log, args)
+        # use marco score
+        iou, dice, prec_dict = validate(val_loader, model, epoch_log, args)
 
         # loggin
         val_log = dict({
             'eval/iou': iou,
-            'eval/dice_coef': dice_coef,
+            'eval/dice': dice,
             'eval/step': epoch_log
         })
         for key in prec_dict.keys():

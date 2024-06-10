@@ -31,6 +31,7 @@ def get_parser():
         cfg = config.merge_cfg_from_list(cfg, args.opts)
     cfg.__setattr__('tsg', args.tsg)
     cfg.__setattr__('jit', args.jit)
+    cfg.__setattr__('num_classes', 1)
     return cfg
 
 

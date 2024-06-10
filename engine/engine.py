@@ -20,10 +20,10 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
     loss_meter = AverageMeter('Loss', ':2.4f')
     iou_meter = AverageMeter('IoU', ':2.2f')
     pr_meter = AverageMeter('Prec@50', ':2.2f')
-    dice_coef_meter = AverageMeter('Dice Coef', ':2.2f')
+    dice_meter = AverageMeter('Dice Coef', ':2.2f')
     progress = ProgressMeter(
         len(train_loader),
-        [batch_time, data_time, lr, loss_meter, iou_meter, pr_meter, dice_coef_meter],
+        [batch_time, data_time, lr, loss_meter, iou_meter, pr_meter, dice_meter],
         prefix="Training: Epoch=[{}/{}] ".format(epoch, args.epochs)
     )
     model.train()
@@ -56,21 +56,21 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
         scaler.update()
 
         # metric
-        iou, pr50, dice_coef = CalculateMetricGPU(pred, target, 0.35, 0.5)
+        iou, dice, dice = CalculateMetricGPU(pred, target, 0.35, 0.5)
         dist.all_reduce(loss.detach())
         dist.all_reduce(iou)
+        dist.all_reduce(dice)
         dist.all_reduce(pr50)
-        dist.all_reduce(dice_coef)
 
         loss = loss / dist.get_world_size()
         iou = iou / dist.get_world_size()
+        dice = dice / dist.get_world_size()
         pr50 = pr50 / dist.get_world_size()
-        dice_coef = dice_coef / dist.get_world_size()
 
         loss_meter.update(loss.item(), image.size(0))
         iou_meter.update(iou.item(), image.size(0))
+        dice_meter.update(dice.item(), image.size(0))
         pr_meter.update(pr50.item(), image.size(0))
-        dice_coef_meter.update(dice_coef.item(), image.size(0))
         lr.update(scheduler.get_last_lr()[-1])
         batch_time.update(time.time() - end)
         
@@ -87,7 +87,7 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
                         "training/loss": loss_meter.val,
                         "training/iou": iou_meter.val,
                         "training/prec@50": pr_meter.val,
-                        "training/dice_coef": dice_coef_meter.val,
+                        "training/dice": dice_meter.val,
                         "training/step": epoch * len(train_loader) + (i + 1)
                     }
                 )
@@ -96,7 +96,7 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
 @torch.no_grad()
 def validate(val_loader, model, epoch, args):
     iou_list = []
-    dice_coef_list = []
+    dice_list = []
     model.eval()
     for imgs, texts, param in val_loader:
         # data
@@ -129,21 +129,21 @@ def validate(val_loader, model, epoch, args):
             inter = np.logical_and(pred, mask)
             union = np.logical_or(pred, mask)
             iou = (np.sum(inter) + 1e-6) / (np.sum(union) + 1e-6)
-            dice_coef = 2 * (torch.sum(inter) + 1e-6) / (torch.sum(pred + mask) + 1e-6)
+            dice = 2 * (torch.sum(inter) + 1e-6) / (torch.sum(pred + mask) + 1e-6)
             iou_list.append(iou)
-            dice_coef_list.append(dice_coef)
+            dice_list.append(dice)
     iou_list = np.stack(iou_list)
     iou_list = torch.from_numpy(iou_list).to(imgs.device)
     iou_list = concat_all_gather(iou_list)
-    dice_coef_list = np.stack(dice_coef_list)
-    dice_coef_list = torch.from_numpy(dice_coef_list).to(imgs.device)
-    dice_coef_list = concat_all_gather(dice_coef_list)
+    dice_list = np.stack(dice_list)
+    dice_list = torch.from_numpy(dice_list).to(imgs.device)
+    dice_list = concat_all_gather(dice_list)
     prec_list = []
     for thres in torch.arange(0.5, 1.0, 0.1):
         tmp = (iou_list > thres).float().mean()
         prec_list.append(tmp)
     iou = iou_list.mean()
-    dice_coef = dice_coef_list.mean()
+    dice = dice_list.mean()
     prec = {}
     temp = '  '
     for i, thres in enumerate(range(5, 10)):
@@ -153,13 +153,13 @@ def validate(val_loader, model, epoch, args):
         temp += "{}: {:.2f}  ".format(key, 100. * value)
     head = 'Evaluation: Epoch=[{}/{}]  IoU={:.2f}'.format(epoch, args.epochs, 100. * iou.item())
     logger.info(head + temp)
-    return iou.item(), prec, dice_coef.item()
+    return iou.item(), dice.item(), prec
 
 @torch.no_grad()
 def inference(test_loader, model, args):
     tokenizer = Tokenizer()
     iou_list = []
-    dice_coef_list = []
+    dice_list = []
     tbar = tqdm(test_loader, desc='Inference:', ncols=100)
     model.eval()
     for img, param in tbar:
@@ -208,9 +208,9 @@ def inference(test_loader, model, args):
             inter = np.logical_and(pred, mask)
             union = np.logical_or(pred, mask)
             iou = (np.sum(inter) + 1e-6) / (np.sum(union) + 1e-6)
-            dice_coef = 2 * (np.sum(inter) + 1e-6) / (np.sum(pred + mask) + 1e-6)
+            dice = 2 * (np.sum(inter) + 1e-6) / (np.sum(pred + mask) + 1e-6)
             iou_list.append(iou)
-            dice_coef_list.append(dice_coef)
+            dice_list.append(dice)
             # dump prediction
             if args.visualize:
                 pred = np.array(pred*255, dtype=np.uint8)
@@ -223,14 +223,14 @@ def inference(test_loader, model, args):
     logger.info('=> Metric Calculation <=')
     iou_list = np.stack(iou_list)
     iou_list = torch.from_numpy(iou_list).to(img.device)
-    dice_coef_list = np.stack(dice_coef_list)
-    dice_coef_list = torch.from_numpy(dice_coef_list).to(img.device)
+    dice_list = np.stack(dice_list)
+    dice_list = torch.from_numpy(dice_list).to(img.device)
     prec_list = []
     for thres in torch.arange(0.5, 1.0, 0.1):
         tmp = (iou_list > thres).float().mean()
         prec_list.append(tmp)
     iou = iou_list.mean()
-    dice_coef = dice_coef_list.mean()
+    dice = dice_list.mean()
     prec = {}
     for i, thres in enumerate(range(5, 10)):
         key = 'Prec@{}'.format(thres*10)
@@ -240,4 +240,4 @@ def inference(test_loader, model, args):
     for k, v in prec.items():
         logger.info('{}: {:.2f}.'.format(k, 100.*v))
 
-    return iou.item(), prec, dice_coef.item()
+    return iou.item(), dice.item(), prec

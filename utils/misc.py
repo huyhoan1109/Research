@@ -120,7 +120,7 @@ def CalculateMetricGPU(output, target, threshold=0.35, pr_iou=0.5):
     output[output < threshold] = 0.
     output[output >= threshold] = 1.
     result = metrics.calculate_metrics(output, target, dim=1, ths=pr_iou)
-    return 100. * result['iou'], 100. * result['precision'], 100 * result['dice_coef']
+    return 100. * result['iou'], 100 * result['dice'], 100. * result['precision']
 
 def group_weight(weight_group, module, lr):
     group_decay = []
@@ -284,7 +284,7 @@ class WandbLogger():
                 "training/lr",
                 "training/loss",
                 "training/iou",
-                "training/dice_coef"
+                "training/dice"
                 "training/prec@50", 
             ],
             'training/step'
@@ -292,7 +292,7 @@ class WandbLogger():
         self.define_metrics(
             [
                 "eval/iou",
-                "eval/dice_coef",
+                "eval/dice",
                 "eval/prec@50",
                 "eval/prec@60",
                 "eval/prec@70",

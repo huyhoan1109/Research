@@ -1,4 +1,6 @@
 datasets
+full_endo_data
+dump
 *.json
 *.pt
 *.pth

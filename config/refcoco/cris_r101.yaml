@@ -37,7 +37,7 @@ TRAIN:
   lr_multi: 0.1
   weight_decay: 0.
   max_norm: 0.
-  manual_seed: 0
+  manual_seed: 2024
   print_freq: 100
   # Resume & Save
   exp_name: CRIS_R101

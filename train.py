@@ -47,6 +47,7 @@ def get_parser():
     cfg.__setattr__('tsg', args.tsg)
     cfg.__setattr__('jit', args.jit)
     cfg.__setattr__('early_stop', args.early_stop)
+    cfg.__setattr__('num_classes', 1)
     return cfg
 
 
@@ -200,13 +201,13 @@ def main_worker(gpu, args):
         train(train_loader, model, optimizer, scheduler, scaler, epoch_log, args, wlogger)
 
         # evaluation
-        iou, prec_dict, dice_coef = validate(val_loader, model, epoch_log, args)
+        iou, dice, prec_dict = validate(val_loader, model, epoch_log, args)
 
         if dist.get_rank() == 0:
             # loggin
             val_log = dict({
                 'eval/iou': iou,
-                'eval/dice_coef': dice_coef,
+                'eval/dice': dice,
                 'eval/step': epoch_log
             })
             for key in prec_dict.keys():

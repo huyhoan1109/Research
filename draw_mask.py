@@ -3,7 +3,7 @@ import cv2
 import argparse
 import numpy as np
 from tqdm import tqdm
-from endoscopy.dataset import DATASETS, ENDO_ROOT
+from endoscopy.dataset import STEPS, ENDO_ROOT
 
 MODEL = {
     'r50': 'CRIS_R50',
@@ -24,29 +24,29 @@ def draw_masked_image(image, mask, name='drawed.png'):
 
 def get_args():
     parser = argparse.ArgumentParser(description='Draw mask')
-    parser.add_argument('--task', default=0, choices=DATASETS.keys(), type=str, help='config file')
+    parser.add_argument('--step', choices=STEPS.keys(), help='config file')
     parser.add_argument('--model', type=str, choices=MODEL.keys(), help='add transformer scale gate.')
 
 if __name__ == '__main__':
-    args = get_args()
-    vis_folder = f'exp/endo/{MODEL[args.model_id]}/{DATASETS[args.task]}/vis'
-    draw_folder = f'exp/endo/{MODEL[args.model_id]}/{DATASETS[args.model]}/draw'
-    os.makedirs(draw_folder, exist_ok=True)
-    file_list = [f for f in os.listdir(vis_folder) if os.path.isfile(os.path.join(vis_folder, f))]
-    for file_name in tqdm(file_list):
-        names = file_name.rsplit('-')
-        img_id = names[0]
-        image_path = ENDO_ROOT+f'/images/{img_id}.jpeg'
-        image = cv2.imread(image_path)
-        mask = cv2.imread(vis_folder+f'/{file_name}')
-        height, width = mask.shape[0], mask.shape[1]
-        image = cv2.resize(image, (height, width), interpolation = cv2.INTER_CUBIC)
-        if names[-1] == 'mask.png':
-            drawed_name = draw_folder+f'/{img_id}-GT.png'
-        else:
-            drawed_name = draw_folder+f'/{img_id}-Pred.png'
-        draw_masked_image(image, mask, drawed_name)  
-
+    # args = get_args()
+    # vis_folder = f'exp/endo/{MODEL[args.model_id]}/{STEPS[args.step]}/vis'
+    # draw_folder = f'exp/endo/{MODEL[args.model_id]}/{STEPS[args.step]}/draw'
+    # os.makedirs(draw_folder, exist_ok=True)
+    # vis_list = [f for f in os.listdir(vis_folder) if os.path.isfile(os.path.join(vis_folder, f))]
+    # for vis_name in tqdm(vis_list):
+    #     names = vis_name.rsplit('-')
+    #     img_id = names[0]
+    #     image_path = ENDO_ROOT+f'/images/{img_id}.jpeg'
+    #     image = cv2.imread(image_path)
+    #     mask = cv2.imread(vis_folder+f'/{vis_name}')
+    #     height, width = mask.shape[0], mask.shape[1]
+    #     image = cv2.resize(image, (height, width), interpolation = cv2.INTER_CUBIC)
+    #     if names[-1] == 'mask.png':
+    #         drawed_name = draw_folder+f'/{img_id}-GT.png'
+    #     else:
+    #         drawed_name = draw_folder+f'/{img_id}-Pred.png'
+    #     draw_masked_image(image, mask, drawed_name)  
+    pass
 
 
 

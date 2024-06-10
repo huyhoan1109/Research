@@ -264,7 +264,7 @@ class Projector(nn.Module):
         super().__init__()
         self.in_dim = in_dim
         self.kernel_size = kernel_size
-        self.inter_dim = in_dim // 2
+        self.inter_dim = in_dim # can choose any as you want
         self.num_classes = num_classes
         # visual projector
         self.vis = nn.Sequential(  # os16 -> os4
