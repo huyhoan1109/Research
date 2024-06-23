@@ -326,7 +326,7 @@ class ScaleGate(nn.Module):
         self.num_stages = num_stages
         self.layers = nn.Sequential(
             nn.Linear(d_model, d_model),
-            nn.ReLU(True) if cfg.use_relu else nn.GELU() ,
+            nn.ReLU() if cfg.use_relu else nn.GELU() ,
             nn.Linear(d_model, num_stages * d_model),
         )
         self.aggr = conv_layer(num_stages * d_model, d_model, 1, 0)

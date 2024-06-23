@@ -83,7 +83,7 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
                         "training/loss": loss_meter.val,
                         "training/iou": iou_meter.val,
                         "training/prec@50": pr_meter.val,
-                        "training/dice": dice.val,
+                        "training/dice": dice_meter.val,
                         "training/step": epoch * len(train_loader) + (i + 1)
                     }
                 )
