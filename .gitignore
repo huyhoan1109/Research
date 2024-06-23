@@ -1,6 +1,13 @@
 datasets
+dump
+*.json
 *.pt
 *.pth
 draft.py
+drawer.py
 __pycache__
+vscode
 .env
+*.log
+wandb
+exp

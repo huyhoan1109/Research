@@ -4,13 +4,9 @@ TRAIN:
   # Add id to continue training (to continue training => continue_training = 'must')
   run_id: 
   continue_training: 
-  # Loss (ce, focal, dice)
-  loss_type: ce
-  alpha: 0.25
-  gamma: 2
-  smooth: 1e-7
+  loss_type: bce_dice
   # Base Arch
-  clip_pretrain: pretrain/endo-ViT-B-16.pt
+  clip_pretrain: pretrain/ViT-B-16.pt
   input_size: 224
   word_len: 22
   word_dim: 512
@@ -25,15 +21,13 @@ TRAIN:
   dropout: 0.1
   intermediate: False
   # Training Setting
-  workers: 32  # data loader workers
+  workers: 16 # data loader workers
   workers_val: 16
   epochs: 100
-  milestones: [35]
   start_epoch: 0
-  batch_size: 32  # batch size for training
-  batch_size_val: 32  # batch size for validation during training, memory and speed tradeoff
+  batch_size: 16  # batch size for training
+  batch_size_val: 16 # batch size for validation during training, memory and speed tradeoff
   base_lr: 0.0001
-  lr_decay: 0.1
   lr_multi: 0.1
   weight_decay: 0.
   max_norm: 0.
@@ -51,3 +45,5 @@ Distributed:
   multiprocessing_distributed: True
   world_size: 1
   rank: 0
+TEST:
+  visualize: False

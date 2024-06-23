@@ -273,9 +273,8 @@ class Projector(nn.Module):
             nn.Conv2d(in_dim, in_dim, 1)
         )
         # textual projector
-        out_dim = 1 * in_dim * kernel_size * kernel_size + 1
-        self.txt = nn.Linear(word_dim, out_dim)
-
+        text_out_dim = in_dim * kernel_size * kernel_size + 1
+        self.txt = nn.Linear(word_dim, text_out_dim)
     def forward(self, x, word):
         '''
             x: b, 512, 26, 26
@@ -283,19 +282,18 @@ class Projector(nn.Module):
         '''
         x = self.vis(x)
         B, C, H, W = x.size()
-        # 1, b*256, 104, 104
         x = x.reshape(1, B * C, H, W)
-        # txt: b, (256*3*3 + 1) -> b, 256, 3, 3 / b
+        # txt: b, (inter_dim * 3 * 3 + 1) -> b, inter_dim, 3, 3 / b
         word = self.txt(word)
         weight, bias = word[:, :-1], word[:, -1]
         weight = weight.reshape(B, C, self.kernel_size, self.kernel_size)
-        # Conv2d - 1, b*256, 104, 104 -> 1, b, 104, 104
+        # combine image and text
         out = F.conv2d(x,
                        weight,
                        padding=self.kernel_size // 2,
                        groups=weight.size(0),
                        bias=bias)
         out = out.transpose(0, 1)
-        # b, 1, 104, 104
+        # b, num_classes, 104, 104
         return out
 

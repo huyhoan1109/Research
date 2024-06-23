@@ -111,7 +111,7 @@ class ProgressMeter(object):
         return "[" + fmt + "/" + fmt.format(num_batches) + "]"
 
 
-def trainMetricGPU(output, target, threshold=0.35, pr_iou=0.5):
+def CalculateMetricGPU(output, target, threshold=0.35, pr_iou=0.5):
     assert (output.dim() in [2, 3, 4])
     assert output.shape == target.shape
     output = output.flatten(1)
@@ -120,43 +120,7 @@ def trainMetricGPU(output, target, threshold=0.35, pr_iou=0.5):
     output[output < threshold] = 0.
     output[output >= threshold] = 1.
     result = metrics.calculate_metrics(output, target, dim=1, ths=pr_iou)
-    return 100. * result['iou'], 100. * result['precision']
-
-
-def ValMetricGPU(output, target, threshold=0.35):
-    assert output.size(0) == 1
-    output = output.flatten(1)
-    target = target.flatten(1)
-    output = torch.sigmoid(output)
-    output[output < threshold] = 0.
-    output[output >= threshold] = 1.
-    # inter & union
-    inter = (output.bool() & target.bool()).sum(dim=1)  # b
-    union = (output.bool() | target.bool()).sum(dim=1)  # b
-    ious = inter / (union + 1e-6)  # 0 ~ 1
-    return ious
-
-
-def intersectionAndUnionGPU(output, target, K, threshold=0.5):
-    # 'K' classes, output and target sizes are N or N * L or N * H * W, each value in range 0 to K - 1.
-    assert (output.dim() in [1, 2, 3])
-    assert output.shape == target.shape
-    output = output.view(-1)
-    target = target.view(-1)
-
-    output = torch.sigmoid(output)
-    output[output < threshold] = 0.
-    output[output >= threshold] = 1.
-    intersection = output[output == target]
-    area_intersection = torch.histc(intersection.float(),
-                                    bins=K,
-                                    min=0,
-                                    max=K - 1)
-    area_output = torch.histc(output.float(), bins=K, min=0, max=K - 1)
-    area_target = torch.histc(target.float(), bins=K, min=0, max=K - 1)
-    area_union = area_output + area_target - area_intersection
-    return area_intersection[1], area_union[1]
-
+    return 100. * result['iou'], 100 * result['dice'], 100. * result['precision']
 
 def group_weight(weight_group, module, lr):
     group_decay = []
@@ -285,6 +249,9 @@ def setup_logger(save_dir, distributed_rank=0, filename="log.txt", mode="a"):
     # redirect stdout/stderr to loguru
     redirect_sys_output("INFO")
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 class WandbLogger():
     def __init__(self, cfg):
         self.cfg = cfg  
@@ -294,11 +261,13 @@ class WandbLogger():
             project,
             mode="online"
         ):
+        add_sg = 'sg' if self.cfg.sg else 'base'
+        model_name = f"{self.cfg.exp_name}_{add_sg}_{self.cfg.dataset}"
         wandb.init(
             project=project,
             mode=mode,
             config=self.cfg,
-            name=self.cfg.exp_name,
+            name=model_name,
             tags=[self.cfg.dataset, self.cfg.clip_pretrain],
             id=self.cfg.run_id,
             resume=self.cfg.continue_training 
@@ -315,13 +284,15 @@ class WandbLogger():
                 "training/lr",
                 "training/loss",
                 "training/iou",
-                "training/prec@50"
+                "training/dice"
+                "training/prec@50", 
             ],
             'training/step'
         )
         self.define_metrics(
             [
                 "eval/iou",
+                "eval/dice",
                 "eval/prec@50",
                 "eval/prec@60",
                 "eval/prec@70",

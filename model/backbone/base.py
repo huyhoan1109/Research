@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from model.backbone.clip import build_model, VisionTransformer
 import torch.nn.functional as F
+import warnings
 
 def conv_layer(in_dim, out_dim, kernel_size=1, padding=0, stride=1):
     return nn.Sequential(
@@ -52,12 +53,9 @@ class CoordConv(nn.Module):
 class Backbone(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        
-        weight = torch.jit.load(cfg.clip_pretrain, map_location="cpu").eval()
-        self.clip = build_model(weight.state_dict(), cfg.word_len).float()
-
+        self.cfg = cfg
+        self.clip = build_model(self.load_pretrain(), cfg.word_len).float()
         self.use_transformer = isinstance(self.clip.visual, VisionTransformer)
-            
         if self.use_transformer:
             num_layers = self.clip.visual.transformer.layers
             assert num_layers >= 3 
@@ -67,6 +65,14 @@ class Backbone(nn.Module):
             for l in self.layer_indexes:
                 self.clip.visual.transformer.resblocks[l].register_forward_hook(lambda m, _, o: self.layers.append(o))
     
+    def load_pretrain(self):
+        if not self.cfg.jit:
+            weight = torch.load(self.cfg.clip_pretrain, map_location="cpu")
+            return weight['model']
+        else:
+            weight = torch.jit.load(self.cfg.clip_pretrain, map_location="cpu").eval()
+            return weight.state_dict()
+
     def forward_visual(self, image):
         if self.use_transformer:
             self.layers = [] 

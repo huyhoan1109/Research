@@ -9,14 +9,10 @@ TRAIN:
   # Add id to continue training (to continue training => continue_training = 'must')
   run_id: 
   continue_training: 
-  # Loss (ce, focal, dice)
-  loss_type: ce
-  alpha: 0.25
-  gamma: 2
-  smooth: 1e-7
+  loss_type: bce_dice
   # Base Arch
   clip_pretrain: pretrain/RN101.pt
-  input_size: 224
+  input_size: 384
   word_len: 22
   word_dim: 512
   vis_dim: 512
@@ -33,12 +29,10 @@ TRAIN:
   workers: 32  # data loader workers
   workers_val: 16
   epochs: 100
-  milestones: [35]
   start_epoch: 0
   batch_size: 32  # batch size for training
   batch_size_val: 32  # batch size for validation during training, memory and speed tradeoff
   base_lr: 0.0001
-  lr_decay: 0.1
   lr_multi: 0.1
   weight_decay: 0.
   max_norm: 0.

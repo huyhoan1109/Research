@@ -465,7 +465,6 @@ class CLIP(nn.Module):
 
     def encode_text(self, text):
         x = self.token_embedding(text).type(self.dtype)  # [batch_size, n_ctx, d_model]
-
         x = x + self.positional_embedding.type(self.dtype)[:x.size(1)]
         x = x.permute(1, 0, 2)  # NLD -> LND
         x = self.transformer(x)
@@ -477,16 +476,17 @@ class CLIP(nn.Module):
         state = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
         # x = x @ self.text_projection
         # state = x[torch.arange(x.shape[0]), text.argmax(dim=-1)]
-
         return x, state
 
     def forward(self, image, text):
-        image_features = self.encode_image(image)
-        text_features = self.encode_text(text)
-
+        if isinstance(self.visual, VisionTransformer):
+            image_features = self.encode_image(image)
+        else: 
+            image_features = self.encode_image(image)[-1]
+        text_features = self.encode_text(text)[-1]
         # normalized features
-        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        image_features = image_features / image_features.norm(dim=1, keepdim=True)
+        text_features = text_features / text_features.norm(dim=1, keepdim=True)
 
         # cosine similarity as logits
         logit_scale = self.logit_scale.exp()

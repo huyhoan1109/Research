@@ -16,13 +16,14 @@ import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.parallel
 import torch.optim
-import torch.utils.data as data
+from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 from loguru import logger
-from torch.optim.lr_scheduler import MultiStepLR
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
-from endoscopy.dataset import EndosDataset
+from endoscopy.dataset import EndosDataset, STEPS
 import utils.config as config
-from utils.misc import WandbLogger
+from utils.misc import WandbLogger, count_parameters
 from engine.engine_endo import train, validate
 from model import build_segmenter
 from utils.misc import (init_random_seed, set_random_seed, setup_logger, worker_init_fn)
@@ -37,28 +38,22 @@ cv2.setNumThreads(0)
 
 def get_parser():
     parser = argparse.ArgumentParser(description='Pytorch CLIP Endoscopy Segmentation')
-    parser.add_argument('--config',
-                        default='path to xxx.yaml',
-                        type=str,
-                        help='config file')
-    parser.add_argument('--tsg',
-                        type=int,
-                        default=0,
-                        help='add transformer scale gate.')
-    parser.add_argument('--root_data',
-                        type=str,
-                        help='load root path for endoscopy data')
-    parser.add_argument('--opts',
-                        default=None,
-                        nargs=argparse.REMAINDER,
-                        help='override some settings in the config.')
+    parser.add_argument('--config', default='path to xxx.yaml', type=str, help='config file')
+    parser.add_argument('--sg', default=0, type=int, help='add scale gate.')
+    parser.add_argument('--jit', default=0, type=int, help='jit mode.')
+    parser.add_argument('--early_stop', default=50, type=int, help='set early stop epoch')
+    parser.add_argument('--step', choices=STEPS.keys(), help='Choose step')
+    parser.add_argument('--opts', default=None, nargs=argparse.REMAINDER, help='override some settings in the config.')
     args = parser.parse_args()
     assert args.config is not None
     cfg = config.load_cfg_from_cfg_file(args.config)
     if args.opts is not None:
         cfg = config.merge_cfg_from_list(cfg, args.opts)
-    cfg.__setattr__('tsg', args.tsg)
-    cfg.__setattr__('root_data', args.root_data)
+    cfg.__setattr__('sg', args.sg)
+    cfg.__setattr__('jit', args.jit)
+    cfg.__setattr__('early_stop', args.early_stop)
+    cfg.__setattr__('step', args.step)
+    cfg.__setattr__('num_classes', 1)
     return cfg
 
 
@@ -84,23 +79,27 @@ def main_worker(gpu, args):
     torch.cuda.set_device(args.gpu)
 
     # logger
-    setup_logger(args.output_dir,
-                 distributed_rank=args.gpu,
-                 filename="train.log",
-                 mode="a")
+    setup_logger(
+        args.output_dir,
+        distributed_rank=args.gpu,
+        filename="train.log",
+        mode="a"
+    )
 
     # dist init
-    dist.init_process_group(backend=args.dist_backend,
-                            init_method=args.dist_url,
-                            world_size=args.world_size,
-                            rank=args.rank)
+    dist.init_process_group(
+        backend=args.dist_backend,
+        init_method=args.dist_url,
+        world_size=args.world_size,
+        rank=args.rank
+    )
 
     # wandb
     if args.rank == 0:
         wandb.login(key=env_var['API_KEY'])
         wlogger = WandbLogger(args)
         wlogger.init_logger(
-            project="CRIS",
+            project="CRIS-ENDO",
             mode="online"
         )
     else:
@@ -112,17 +111,20 @@ def main_worker(gpu, args):
     if args.sync_bn:
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     logger.info(model)
-    model = nn.parallel.DistributedDataParallel(model.cuda(),
-                                                device_ids=[args.gpu],
-                                                find_unused_parameters=True)
+    logger.info(f'Total parameters: {count_parameters(model)}')
+    model = nn.parallel.DistributedDataParallel(
+        model.cuda(),
+        device_ids=[args.gpu],
+        find_unused_parameters=True
+    )
 
     # build optimizer & lr scheduler
-    optimizer = torch.optim.Adam(param_list,
-                                 lr=args.base_lr,
-                                 weight_decay=args.weight_decay)
-    scheduler = MultiStepLR(optimizer,
-                            milestones=args.milestones,
-                            gamma=args.lr_decay)
+    optimizer = torch.optim.Adam(
+        param_list,
+        lr=args.base_lr,
+        weight_decay=args.weight_decay
+    )
+    
     scaler = amp.GradScaler()
 
     # build dataset
@@ -131,40 +133,49 @@ def main_worker(gpu, args):
     args.workers = int((args.workers + args.ngpus_per_node - 1) / args.ngpus_per_node)
     
     train_data = EndosDataset(
-        root_path=args.root_data,
         input_size=args.input_size,
         word_length=args.word_len,
         split='train',
     )
     val_data = EndosDataset(
-        root_path=args.root_data,
+        step=args.step,
         input_size=args.input_size,
         word_length=args.word_len,
         split='test',
     )
 
     # build dataloader
-    init_fn = partial(worker_init_fn,
-                      num_workers=args.workers,
-                      rank=args.rank,
-                      seed=args.manual_seed)
-    train_sampler = data.distributed.DistributedSampler(train_data, shuffle=True)
-    val_sampler = data.distributed.DistributedSampler(val_data, shuffle=False)
-    train_loader = data.DataLoader(train_data,
-                                   batch_size=args.batch_size,
-                                   shuffle=False,
-                                   num_workers=args.workers,
-                                   pin_memory=True,
-                                   worker_init_fn=init_fn,
-                                   sampler=train_sampler,
-                                   drop_last=True)
-    val_loader = data.DataLoader(val_data,
-                                 batch_size=args.batch_size_val,
-                                 shuffle=False,
-                                 num_workers=args.workers_val,
-                                 pin_memory=True,
-                                 sampler=val_sampler,
-                                 drop_last=False)
+    init_fn = partial(
+        worker_init_fn,
+        num_workers=args.workers,
+        rank=args.rank,
+        seed=args.manual_seed
+    )
+    train_sampler = DistributedSampler(train_data, shuffle=True)
+    val_sampler = DistributedSampler(val_data, shuffle=False)
+    train_loader = DataLoader(
+        train_data,
+        batch_size=args.batch_size,
+        num_workers=args.workers,
+        pin_memory=True,
+        worker_init_fn=init_fn,
+        sampler=train_sampler,
+        drop_last=True
+    )
+    val_loader = DataLoader(
+        val_data,
+        batch_size=args.batch_size_val,
+        num_workers=args.workers_val,
+        pin_memory=True,
+        sampler=val_sampler,
+        drop_last=False
+    )
+
+    scheduler = CosineAnnealingLR(
+        optimizer,
+        T_max = args.epochs,
+        eta_min = args.base_lr / 1000,
+    )
 
     best_IoU = 0.0
     # resume
@@ -174,17 +185,15 @@ def main_worker(gpu, args):
             map_location = {'cuda:%d' % 0: 'cuda:%d' % args.rank}
             checkpoint = torch.load(args.resume, map_location=map_location)
             args.start_epoch = checkpoint['epoch']
-            best_IoU = checkpoint["best_iou"]
+            best_IoU = checkpoint["iou"]
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
             scheduler.load_state_dict(checkpoint['scheduler'])
-            logger.info("=> loaded checkpoint '{}' (epoch {})".format(
-                args.resume, checkpoint['epoch']))
+            logger.info(f"=> loaded checkpoint '{args.resume}' (epoch {checkpoint['epoch']})")
         else:
-            raise ValueError(
-                "=> resume failed! no checkpoint found at '{}'. Please check args.resume again!"
-                .format(args.resume))
-
+            raise ValueError(f"=> resume failed! no checkpoint found at '{args.resume}'. Please check args.resume again!")
+    
+    early_epoch = args.early_stop
     # start training
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
@@ -197,12 +206,13 @@ def main_worker(gpu, args):
         train(train_loader, model, optimizer, scheduler, scaler, epoch_log, args, wlogger)
 
         # evaluation
-        iou, prec_dict = validate(val_loader, model, epoch_log, args)
+        iou, dice, prec_dict = validate(val_loader, model, epoch_log, args)
 
         if dist.get_rank() == 0:
             # loggin
             val_log = dict({
                 'eval/iou': iou,
+                'eval/dice': dice,
                 'eval/step': epoch_log
             })
             for key in prec_dict.keys():
@@ -211,29 +221,31 @@ def main_worker(gpu, args):
             wlogger.logging(val_log)
           
             # save model
-            lastname = os.path.join(args.output_dir, "last_model.pth")
-            torch.save(
-                {
-                    'epoch': epoch_log,
-                    'cur_iou': iou,
-                    'best_iou': best_IoU,
-                    'prec': prec_dict,
-                    'state_dict': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                    'scheduler': scheduler.state_dict()
-                }, 
-                lastname
-            )
-            if iou >= best_IoU:
+            if iou >= best_IoU and early_epoch > 0:
                 best_IoU = iou
-                bestname = os.path.join(args.output_dir, "best_model.pth")
-                shutil.copyfile(lastname, bestname)
+                early_epoch = args.early_stop
+                model_name = f"best_model_sg.pth" if args.sg else f"best_model_base.pth"
+                model_path = os.path.join(args.output_dir, model_name)
+                torch.save(
+                    {
+                        'epoch': epoch_log,
+                        'iou': iou,
+                        'prec': prec_dict,
+                        'state_dict': model.state_dict(),
+                        'optimizer': optimizer.state_dict(),
+                        'scheduler': scheduler.state_dict()
+                    }, 
+                    model_path
+                )
+            else:
+                early_epoch -= 1
+                if early_epoch == 0:
+                    break
 
         # update lr
         scheduler.step(epoch_log)
         torch.cuda.empty_cache()
 
-    time.sleep(2)
     if dist.get_rank() == 0:
         wlogger.finish()
 

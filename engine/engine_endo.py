@@ -7,10 +7,9 @@ import torch
 import torch.cuda.amp as amp
 import torch.distributed as dist
 import torch.nn.functional as F
-import wandb
+from loss import build_loss
 from loguru import logger
-from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather, trainMetricGPU)
-
+from utils.misc import (AverageMeter, ProgressMeter, concat_all_gather, CalculateMetricGPU)
 from endoscopy.transform import *
 
 def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogger=None):
@@ -20,13 +19,13 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
     loss_meter = AverageMeter('Loss', ':2.4f')
     iou_meter = AverageMeter('IoU', ':2.2f')
     pr_meter = AverageMeter('Prec@50', ':2.2f')
+    dice_meter = AverageMeter('Dice Coef', ':2.2f')
     progress = ProgressMeter(
         len(train_loader),
-        [batch_time, data_time, lr, loss_meter, iou_meter, pr_meter],
+        [batch_time, data_time, lr, loss_meter, iou_meter, pr_meter, dice_meter],
         prefix="Training: Epoch=[{}/{}] ".format(epoch, args.epochs)
     )
     model.train()
-    time.sleep(2)
     end = time.time()
 
     # size_list = [320, 352, 384, 416, 448, 480, 512]
@@ -38,7 +37,7 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
         # data
         image = data['image'].cuda(non_blocking=True)
         text = data['word'].cuda(non_blocking=True)
-        target = data['mask'].cuda(non_blocking=True).unsqueeze(1)
+        target = data['mask'].cuda(non_blocking=True)
 
         # forward
         with amp.autocast():
@@ -53,18 +52,21 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
         scaler.update()
 
         # metric
-        iou, pr5 = trainMetricGPU(pred, target, 0.35, 0.5)
+        iou, dice, pr50 = CalculateMetricGPU(pred, target, 0.35, 0.5)
         dist.all_reduce(loss.detach())
         dist.all_reduce(iou)
-        dist.all_reduce(pr5)
+        dist.all_reduce(dice)
+        dist.all_reduce(pr50)
         
         loss = loss / dist.get_world_size()
         iou = iou / dist.get_world_size()
-        pr5 = pr5 / dist.get_world_size()
-        
+        dice = dice / dist.get_world_size()
+        pr50 = pr50 / dist.get_world_size()
+
         loss_meter.update(loss.item(), image.size(0))
         iou_meter.update(iou.item(), image.size(0))
-        pr_meter.update(pr5.item(), image.size(0))
+        dice_meter.update(dice.item(), image.size(0))
+        pr_meter.update(pr50.item(), image.size(0))
         lr.update(scheduler.get_last_lr()[-1])
         batch_time.update(time.time() - end)
         
@@ -81,6 +83,7 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
                         "training/loss": loss_meter.val,
                         "training/iou": iou_meter.val,
                         "training/prec@50": pr_meter.val,
+                        "training/dice": dice.val,
                         "training/step": epoch * len(train_loader) + (i + 1)
                     }
                 )
@@ -88,37 +91,42 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
 @torch.no_grad()
 def validate(val_loader, model, epoch, args):
     iou_list = []
+    dice_list = []
     model.eval()
-    time.sleep(2)
     for id, data in enumerate(val_loader):
         # data
         imgs = data['image'].cuda(non_blocking=True)
         texts = data['word'].cuda(non_blocking=True)
-        target = data['mask'].cuda(non_blocking=True)
+        masks = data['mask'].cuda(non_blocking=True)
         # inference
         preds = model(imgs, texts)
         preds = torch.sigmoid(preds)
-        if preds.shape[-2:] != target.shape[-2:]:
-            preds = F.interpolate(preds,
-                                  size=target.shape[-2:],
-                                  mode='bicubic',
-                                  align_corners=True).squeeze(1)
-
-        for pred, mask in zip(preds, target):
+        if preds.shape[-2:] != masks.shape[-2:]:
+            preds = F.interpolate(
+                preds,
+                size=masks.shape[-2:],
+                mode='bicubic',
+                align_corners=True
+            ).squeeze(1)
+        for pred, mask in zip(preds, masks):
             pred = torch.tensor(pred > 0.35)
-            # iou
             inter = torch.logical_and(pred, mask)
             union = torch.logical_or(pred, mask)
             iou = torch.sum(inter) / (torch.sum(union) + 1e-6)
+            dice = (2 * torch.sum(inter) + 1e-6) / (torch.sum(pred + mask) + 1e-6)
             iou_list.append(iou)
+            dice_list.append(dice)
 
     iou_list = torch.stack(iou_list).to(imgs.device)
+    dice_list = torch.stack(dice_list).to(imgs.device)
     iou_list = concat_all_gather(iou_list)
+    dice_list = concat_all_gather(dice_list)
     prec_list = []
     for thres in torch.arange(0.5, 1.0, 0.1):
         tmp = (iou_list > thres).float().mean()
         prec_list.append(tmp)
     iou = iou_list.mean()
+    dice = dice_list.mean()
     prec = {}
     temp = '  '
     for i, thres in enumerate(range(5, 10)):
@@ -126,60 +134,68 @@ def validate(val_loader, model, epoch, args):
         value = prec_list[i].item()
         prec[key] = value
         temp += "{}: {:.2f}  ".format(key, 100. * value)
-    head = 'Evaluation: Epoch=[{}/{}]  IoU={:.2f}'.format(epoch, args.epochs, 100. * iou.item())
+    head = 'Evaluation: Epoch=[{}/{}]  IoU={:.2f} Dice={:.2f}'.format(epoch, args.epochs, 100. * iou.item(), 100. * dice.item())
     logger.info(head + temp)
-    return iou.item(), prec
+    return iou.item(), dice.item(), prec
 
 @torch.no_grad()
 def inference(test_loader, model, args):
     iou_list = []
+    dice_list = []
     tbar = tqdm(test_loader, desc='Inference:', ncols=100)
     model.eval()
-    time.sleep(2)
     for id, data in enumerate(tbar):
         # data
-        img = data['image'].cuda(non_blocking=True)
+        imgs = data['image'].cuda(non_blocking=True)
         target = data['mask'].cuda(non_blocking=True)
-        word = data['word'].cuda(non_blocking=True)
+        words = data['word'].cuda(non_blocking=True)
         prompts = data['prompt']
-        img_ids = data['img_id']
-        preds = model(img, word)
-        preds = torch.sigmoid(preds)
+        img_ids = data['img_id']  
+        preds = model(imgs, words)
+        preds = torch.sigmoid(preds)   
         if preds.shape[-2:] != target.shape[-2:]:
-            preds = F.interpolate(preds,
-                                size=target.shape[-2:],
-                                mode='bicubic',
-                                align_corners=True).squeeze(1)
+            preds = F.interpolate(
+                preds,
+                size=target.shape[-2:],
+                mode='bicubic',
+                align_corners=True
+            ).squeeze(1)
         for pred, mask, sent, img_id in zip(preds, target, prompts, img_ids):
             pred = torch.tensor(pred > 0.35)
             # iou
             inter = torch.logical_and(pred, mask)
             union = torch.logical_or(pred, mask)
-            iou = torch.sum(inter) / (torch.sum(union) + 1e-6)
+            iou = (torch.sum(inter) + 1e-6) / (torch.sum(union) + 1e-6)
+            dice = (2 * torch.sum(inter) + 1e-6) / (torch.sum(pred + mask) + 1e-6)
             iou_list.append(iou)
+            dice_list.append(dice)
             if args.visualize:
                 # dump image & mask
+                mask = np.array(mask.cpu()*255, dtype=np.uint8)
                 mask_name = '{}-mask.png'.format(img_id)
                 cv2.imwrite(filename=os.path.join(args.vis_dir, mask_name), img=mask)
-                pred = np.array(pred*255, dtype=np.uint8)
+                pred = np.array(pred.cpu()*255, dtype=np.uint8)
                 pred_name = '{}-iou={:.2f}-{}.png'.format(img_id, iou * 100, sent)
                 cv2.imwrite(filename=os.path.join(args.vis_dir, pred_name), img=pred)
-    
+
     logger.info('=> Metric Calculation <=')
     iou_list = torch.stack(iou_list).to(imgs.device)
     iou_list = concat_all_gather(iou_list)
+    dice_list = torch.stack(dice_list).to(imgs.device)
+    dice_list = concat_all_gather(dice_list)
     prec_list = []
     for thres in torch.arange(0.5, 1.0, 0.1):
         tmp = (iou_list > thres).float().mean()
         prec_list.append(tmp)
     iou = iou_list.mean()
+    dice = dice_list.mean()
     prec = {}
     for i, thres in enumerate(range(5, 10)):
         key = 'Pr@{}'.format(thres*10)
         value = prec_list[i].item()
         prec[key] = value
-    logger.info('IoU={:.2f}'.format(100.*iou.item()))
+    logger.info('IoU={:.2f} Dice={:.2f}'.format(100.*iou.item(), 100.*dice.item()))
     for k, v in prec.items():
         logger.info('{}: {:.2f}.'.format(k, 100.*v))
 
-    return iou.item(), prec
+    return iou.item(), dice.item(), prec
