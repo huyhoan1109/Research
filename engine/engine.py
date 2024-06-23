@@ -129,7 +129,7 @@ def validate(val_loader, model, epoch, args):
             inter = np.logical_and(pred, mask)
             union = np.logical_or(pred, mask)
             iou = (np.sum(inter) + 1e-6) / (np.sum(union) + 1e-6)
-            dice = (2 * torch.sum(inter) + 1e-6) / (torch.sum(pred + mask) + 1e-6)
+            dice = (2 * np.sum(inter) + 1e-6) / (np.sum(pred + mask) + 1e-6)
             iou_list.append(iou)
             dice_list.append(dice)
     iou_list = np.stack(iou_list)
