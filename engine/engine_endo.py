@@ -97,25 +97,25 @@ def validate(val_loader, model, epoch, args):
         # data
         imgs = data['image'].cuda(non_blocking=True)
         texts = data['word'].cuda(non_blocking=True)
-        target = data['mask'].cuda(non_blocking=True)
+        masks = data['mask'].cuda(non_blocking=True)
         # inference
         preds = model(imgs, texts)
         preds = torch.sigmoid(preds)
-        if preds.shape[-2:] != target.shape[-2:]:
+        if preds.shape[-2:] != masks.shape[-2:]:
             preds = F.interpolate(
                 preds,
-                size=target.shape[-2:],
+                size=masks.shape[-2:],
                 mode='bicubic',
                 align_corners=True
             ).squeeze(1)
-
-        preds = torch.tensor(preds > 0.35)
-        inters = torch.logical_and(preds, target)
-        unions = torch.logical_or(preds, target)
-        iou = (torch.sum(inters)+ 1e-6) / (torch.sum(unions) + 1e-6)
-        iou_list.append(iou)
-        dice = 2 * (torch.sum(inters) + 1e-6) / (torch.sum(preds + target) + 1e-6)
-        dice_list.append(dice)
+        for pred, mask in zip(preds, masks):
+            pred = torch.tensor(pred > 0.35)
+            inter = torch.logical_and(pred, mask)
+            union = torch.logical_or(pred, mask)
+            iou = torch.sum(inter) / (torch.sum(union) + 1e-6)
+            dice = (2 * torch.sum(inter) + 1e-6) / (torch.sum(pred + mask) + 1e-6)
+            iou_list.append(iou)
+            dice_list.append(dice)
 
     iou_list = torch.stack(iou_list).to(imgs.device)
     dice_list = torch.stack(dice_list).to(imgs.device)
@@ -166,7 +166,7 @@ def inference(test_loader, model, args):
             inter = torch.logical_and(pred, mask)
             union = torch.logical_or(pred, mask)
             iou = (torch.sum(inter) + 1e-6) / (torch.sum(union) + 1e-6)
-            dice = 2 * (torch.sum(inter) + 1e-6) / (torch.sum(pred + mask) + 1e-6)
+            dice = (2 * torch.sum(inter) + 1e-6) / (torch.sum(pred + mask) + 1e-6)
             iou_list.append(iou)
             dice_list.append(dice)
             if args.visualize:

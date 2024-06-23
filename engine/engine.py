@@ -56,7 +56,7 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
         scaler.update()
 
         # metric
-        iou, dice, dice = CalculateMetricGPU(pred, target, 0.35, 0.5)
+        iou, dice, pr50 = CalculateMetricGPU(pred, target, 0.35, 0.5)
         dist.all_reduce(loss.detach())
         dist.all_reduce(iou)
         dist.all_reduce(dice)
@@ -129,7 +129,7 @@ def validate(val_loader, model, epoch, args):
             inter = np.logical_and(pred, mask)
             union = np.logical_or(pred, mask)
             iou = (np.sum(inter) + 1e-6) / (np.sum(union) + 1e-6)
-            dice = 2 * (torch.sum(inter) + 1e-6) / (torch.sum(pred + mask) + 1e-6)
+            dice = (2 * torch.sum(inter) + 1e-6) / (torch.sum(pred + mask) + 1e-6)
             iou_list.append(iou)
             dice_list.append(dice)
     iou_list = np.stack(iou_list)
@@ -208,7 +208,7 @@ def inference(test_loader, model, args):
             inter = np.logical_and(pred, mask)
             union = np.logical_or(pred, mask)
             iou = (np.sum(inter) + 1e-6) / (np.sum(union) + 1e-6)
-            dice = 2 * (np.sum(inter) + 1e-6) / (np.sum(pred + mask) + 1e-6)
+            dice = (2 * np.sum(inter) + 1e-6) / (np.sum(pred + mask) + 1e-6)
             iou_list.append(iou)
             dice_list.append(dice)
             # dump prediction

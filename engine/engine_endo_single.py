@@ -29,10 +29,10 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
     for i, data in enumerate(train_loader):
         data_time.update(time.time() - end)
         # data
-        image = data['image'].cuda()
-        text = data['word'].cuda()
-        target = data['mask'].cuda()
-
+        image = data['image'].cuda(non_blocking=True)
+        text = data['word'].cuda(non_blocking=True)
+        target = data['mask'].cuda(non_blocking=True)
+        
         # forward
         with amp.autocast():
             pred, target, loss = model(image, text, target)
@@ -80,11 +80,9 @@ def validate(val_loader, model, epoch, args):
     model.eval()
     for idx, data in enumerate(val_loader):
         # data
-        if idx == 5:
-            break
-        imgs = data['image'].cuda()
-        texts = data['word'].cuda()
-        masks = data['mask'].cuda()
+        imgs = data['image'].cuda(non_blocking=True)
+        texts = data['word'].cuda(non_blocking=True)
+        masks = data['mask'].cuda(non_blocking=True)
         # inference
         preds = model(imgs, texts)
         preds = torch.sigmoid(preds)
@@ -95,24 +93,32 @@ def validate(val_loader, model, epoch, args):
                 mode='bicubic',
                 align_corners=True
             ).squeeze(1)
-        preds = torch.tensor(preds > 0.35)
-        inters = torch.logical_and(preds, masks)
-        unions = torch.logical_or(preds, masks)
-        iou = (torch.sum(inters)+ 1e-6) / (torch.sum(unions) + 1e-6)
-        dice = 2 * (torch.sum(inters) + 1e-6) / (torch.sum(preds + masks) + 1e-6)
-        iou_list.append(iou)
-        dice_list.append(dice)
+        for pred, mask in zip(preds, masks):
+            pred = torch.tensor(pred > 0.35)
+            inter = torch.logical_and(pred, mask)
+            union = torch.logical_or(pred, mask)
+            iou = (torch.sum(inter) + 1e-6) / (torch.sum(union) + 1e-6)
+            dice = (2 * torch.sum(inter) + 1e-6) / (torch.sum(pred + mask) + 1e-6)
+            iou_list.append(iou)
+            dice_list.append(dice)
+
+        # inter_list.append(torch.sum(inters))
+        # union_list.append(torch.sum(unions))
+        # combo_list.append(torch.sum(preds + masks))
     
     iou_list = torch.stack(iou_list).to(imgs.device)
     dice_list = torch.stack(dice_list).to(imgs.device)
-    if len(iou_list.size()) == 2:
-        micro_iou = iou_list.permute(1, 0).mean(1)
-        micro_dice = dice_list.permute(1, 0).mean(1)
-    else:
-        micro_iou = iou_list.mean()
-        micro_dice = dice_list.mean()
+    
+    # inter_list = torch.tensor(inter_list).to(imgs.device)
+    # union_list = torch.tensor(union_list).to(imgs.device)
+    # combo_list = torch.tensor(combo_list).to(imgs.device)
+    
     macro_iou = iou_list.mean()
     macro_dice = dice_list.mean()
+
+    # micro_iou = (torch.sum(inter_list) + 1e-6) / (torch.sum(union_list) + 1e-6)
+    # micro_dice = (2 * torch.sum(inter_list) + 1e-6) / (torch.sum(combo_list) + 1e-6)
+    
     prec_list = []
     for thres in torch.arange(0.5, 1.0, 0.1):
         tmp = (iou_list > thres).float().mean()
@@ -124,7 +130,8 @@ def validate(val_loader, model, epoch, args):
         value = prec_list[i].item()
         prec[key] = value
         temp += "{}: {:.2f}  ".format(key, 100. * value)
-    head = 'Evaluation: Epoch=[{}/{}]  Macro: [IoU={:.2f} Dice={:.2f}] Micro: [IoU={:.2f} Dice={:.2f}]'.format(epoch, args.epochs, 100. * macro_iou.item(), 100. * macro_dice.item(), 100. * micro_iou.item(), 100. * micro_dice.item())
+    # head = 'Evaluation: Epoch=[{}/{}]  Macro: [IoU={:.2f} Dice={:.2f}] Micro: [IoU={:.2f} Dice={:.2f}]'.format(epoch, args.epochs, 100. * macro_iou.item(), 100. * macro_dice.item(), 100. * micro_iou.item(), 100. * micro_dice.item())
+    head = 'Evaluation: Epoch=[{}/{}]  IoU={:.2f} Dice={:.2f}'.format(epoch, args.epochs, 100. * macro_iou.item(), 100. * macro_dice.item())
     logger.info(head + temp)
     return macro_iou.item(), macro_dice.item(), prec
 
@@ -132,11 +139,12 @@ def validate(val_loader, model, epoch, args):
 def inference(test_loader, model, args):
     iou_list = []
     dice_list = []
-    tbar = tqdm(test_loader, desc='Inference:', ncols=100)
+    inter_list = []
+    union_list = []
+    combo_list = []
+    tbar = tqdm(test_loader, desc='Inference', ncols=100)
     model.eval()
     for idx, data in enumerate(tbar):
-        if idx == 10:
-            break
         imgs = data['image'].cuda()
         masks = data['mask'].cuda()
         words = data['word'].cuda()
@@ -154,28 +162,34 @@ def inference(test_loader, model, args):
             ).squeeze(1)
         if len(preds.shape) == 3:
             preds = preds.unsqueeze(1)
-            masks = masks.unsqueeze(1)
         for pred, mask, img_id, prompt, label in zip(preds, masks, img_ids, prompts, labels):
-            iou_stack, dice_stack = single_inference(
+            iou_stack, dice_stack, inter_stack, union_stack = single_inference(
                 pred, 
                 mask, 
                 img_id, 
                 prompt,
                 label, 
-                vis_dir=args.vis_dir, 
-                visual=args.visualize
+                args
             )
             iou_list.append(iou_stack)
             dice_list.append(dice_stack)
+            inter_list.append(inter_stack)
+            union_list.append(union_stack)
+            combo_list.append(torch.sum(pred + mask))
     logger.info('=> Metric Calculation <=')
-    iou_list = torch.stack(iou_list).to(imgs.device).permute(1, 0)
-    dice_list = torch.stack(dice_list).to(imgs.device).permute(1, 0) 
-    micro_iou = (iou_list.mean(1).numpy() * 100).round(3)  # Micro iou
-    micro_dice = (dice_list.mean(1).numpy() * 100).round(3) # Micro dice
-    macro_iou = round(micro_iou.mean(), 3)
-    macro_dice = round(micro_dice.mean(), 3)
-    # logger.info('Micro: IoU={}, Dice={}'.format(micro_iou, micro_dice))
-    logger.info('Macro: IoU={}, Dice={}'.format(macro_iou, macro_dice))
+    
+    iou_list = torch.stack(iou_list).to(imgs.device)
+    dice_list = torch.stack(dice_list).to(imgs.device)
+    
+    inter_list = torch.tensor(inter_list).to(imgs.device)
+    union_list = torch.tensor(union_list).to(imgs.device)
+    combo_list = torch.tensor(combo_list).to(imgs.device)
+    
+    micro_iou = (torch.sum(inter_list) + 1e-6) / (torch.sum(union_list) + 1e-6)
+    micro_dice = (2 * torch.sum(inter_list) + 1e-6) / (torch.sum(combo_list) + 1e-6)
+    macro_iou = iou_list.mean()
+    macro_dice = dice_list.mean()
+    logger.info('Macro: IoU={}, Dice={}; Micro: IoU={}, Dice={}'.format(macro_iou, macro_dice, micro_iou, micro_dice))
 
 def single_inference(
         pred, 
@@ -183,22 +197,26 @@ def single_inference(
         img_id, 
         sentence, 
         label, 
-        vis_dir, 
-        visual=True
+        args
     ):
     output_shape = pred.shape
     iou_stack = []
     dice_stack = []
-    os.makedirs(os.path.join(vis_dir, img_id), exist_ok=True)
-    pred = torch.tensor(pred > 0.35)
+    inter_stack = []
+    union_stack = []
+    if args.visualize:
+        os.makedirs(os.path.join(args.vis_dir, img_id), exist_ok=True)
     for i in range(output_shape[0]):
-        inter_i = torch.logical_and(pred[i], mask[i])
-        union_i = torch.logical_or(pred[i], mask[i])
+        pred_i = torch.tensor(pred[i] > 0.35)
+        inter_i = torch.logical_and(pred_i, mask[i])
+        union_i = torch.logical_or(pred_i, mask[i])
         iou_i = (torch.sum(inter_i) + 1e-6) / (torch.sum(union_i) + 1e-6)
-        dice_i = 2 * (torch.sum(inter_i) + 1e-6) / (torch.sum(pred[i] + mask[i]) + 1e-6)
+        dice_i = (2 * torch.sum(inter_i) + 1e-6) / (torch.sum(pred_i + mask[i]) + 1e-6)
+        inter_stack.append(torch.sum(inter_i))
+        union_stack.append(torch.sum(union_i))
         iou_stack.append(iou_i) 
         dice_stack.append(dice_i)
-        if visual:
+        if args.visualize:
             if output_shape[0] > 1:
                 mask_name = '{}/infer-{}-{}-mask.png'.format(img_id, i, label)
                 pred_name = '{}/infer-{}-{}-iou={:.2f}-{}.png'.format(img_id, i, label, iou_i * 100, sentence)
@@ -206,7 +224,7 @@ def single_inference(
                 mask_name = '{}/infer-{}-mask.png'.format(img_id, label)
                 pred_name = '{}/infer-{}-iou={:.2f}-{}.png'.format(img_id, label, iou_i * 100, sentence)            
             mask_i = np.array(mask[i].cpu() * 255, dtype=np.uint8)
-            pred_i = np.array(pred[i].cpu() * 255, dtype=np.uint8)
-            cv2.imwrite(filename=os.path.join(vis_dir, mask_name), img=mask_i)
-            cv2.imwrite(filename=os.path.join(vis_dir, pred_name), img=pred_i)
-    return torch.tensor(iou_stack), torch.tensor(dice_stack)
+            pred_i = np.array(pred_i.cpu() * 255, dtype=np.uint8)
+            cv2.imwrite(filename=os.path.join(args.vis_dir, mask_name), img=mask_i)
+            cv2.imwrite(filename=os.path.join(args.vis_dir, pred_name), img=pred_i)
+    return torch.tensor(iou_stack), torch.tensor(dice_stack), torch.tensor(inter_stack), torch.tensor(union_stack)

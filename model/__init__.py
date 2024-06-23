@@ -1,10 +1,10 @@
 from .cris import CRIS
-from .tsg.cris import CRIS as tsgCRIS
+from .sg.cris import CRIS as sgCRIS
 from loguru import logger
 
 def build_segmenter(args):
-    if args.tsg == True:
-        model = tsgCRIS(args)
+    if args.sg == True:
+        model = sgCRIS(args)
     else:
         model = CRIS(args)
     backbone = []

@@ -6,9 +6,9 @@ def calculate_metrics(pred, target, dim, smooth=1e-6, ths=0.5):
     ious = (inter + smooth) / (union + smooth)
     iou = ious.mean()
     prec = (ious > ths).float().mean()
-    dice = 2 * (
-        ((pred * target).sum(dim=1) + smooth) / 
-        ((pred + target).sum(dim=1) + smooth)
+    dice = (
+        (2 *(pred * target).sum(dim=dim) + smooth) / 
+        ((pred + target).sum(dim=dim) + smooth)
     ).mean()
     return {
         'iou': iou,

@@ -476,7 +476,6 @@ class CLIP(nn.Module):
         state = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
         # x = x @ self.text_projection
         # state = x[torch.arange(x.shape[0]), text.argmax(dim=-1)]
-
         return x, state
 
     def forward(self, image, text):

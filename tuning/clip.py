@@ -250,6 +250,7 @@ class CLIP(nn.Module):
                  vision_patch_size: int,
                  # text
                  context_length: int,
+                 txt_length: int,
                  vocab_size: int,
                  transformer_width: int,
                  transformer_heads: int,
@@ -283,7 +284,7 @@ class CLIP(nn.Module):
             width=transformer_width,
             layers=transformer_layers,
             heads=transformer_heads,
-            attn_mask=self.build_attention_mask()
+            attn_mask=self.build_attention_mask(txt_length)
         )
 
         self.vocab_size = vocab_size
@@ -325,10 +326,10 @@ class CLIP(nn.Module):
         if self.text_projection is not None:
             nn.init.normal_(self.text_projection, std=self.transformer.width ** -0.5)
 
-    def build_attention_mask(self):
+    def build_attention_mask(self, txt_length):
         # lazily create causal attention mask, with full attention between the vision tokens
         # pytorch uses additive attention mask; fill with -inf
-        mask = torch.empty(self.context_length, self.context_length)
+        mask = torch.empty(txt_length, txt_length)
         mask.fill_(float("-inf"))
         mask.triu_(1)  # zero out the lower diagonal
         return mask
@@ -343,7 +344,7 @@ class CLIP(nn.Module):
     def encode_text(self, text):
         x = self.token_embedding(text).type(self.dtype)  # [batch_size, n_ctx, d_model]
 
-        x = x + self.positional_embedding.type(self.dtype)
+        x = x + self.positional_embedding.type(self.dtype)[:x.size(1)]
         x = x.permute(1, 0, 2)  # NLD -> LND
         x = self.transformer(x)
         x = x.permute(1, 0, 2)  # LND -> NLD
@@ -396,7 +397,7 @@ def convert_weights(model: nn.Module):
     model.apply(_convert_weights_to_fp16)
 
 
-def build_model(state_dict: dict):
+def build_model(state_dict: dict, txt_length: int):
     vit = "visual.proj" in state_dict
 
     if vit:
@@ -424,7 +425,7 @@ def build_model(state_dict: dict):
     model = CLIP(
         embed_dim,
         image_resolution, vision_layers, vision_width, vision_patch_size,
-        context_length, vocab_size, transformer_width, transformer_heads, transformer_layers
+        context_length, txt_length, vocab_size, transformer_width, transformer_heads, transformer_layers
     )
 
     for key in ["input_resolution", "context_length", "vocab_size"]:
@@ -432,5 +433,5 @@ def build_model(state_dict: dict):
             del state_dict[key]
 
     convert_weights(model)
-    model.load_state_dict(state_dict)
+    model.load_state_dict(state_dict, False)
     return model.eval()

@@ -26,7 +26,7 @@ class CRIS(nn.Module):
                                           dropout=cfg.dropout,
                                           return_intermediate=cfg.intermediate)
         # Projector
-        self.proj = Projector(cfg.num_classes, cfg.word_dim, cfg.vis_dim // 2, 3)
+        self.proj = Projector(cfg.word_dim, cfg.vis_dim // 2, 3)
         self.loss_func = build_loss(cfg.loss_type)
 
     def forward(self, img, word, mask=None):

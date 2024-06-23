@@ -280,22 +280,20 @@ class FPN(nn.Module):
         return fq, r_fusion
 
 class Projector(nn.Module):
-    def __init__(self, num_classes=1, word_dim=1024, in_dim=256, kernel_size=3):
+    def __init__(self, word_dim=1024, in_dim=256, kernel_size=3):
         super().__init__()
         self.in_dim = in_dim
         self.kernel_size = kernel_size
-        self.num_classes = num_classes
-        self.inter_dim = in_dim # can choose any as you want
         # visual projector
         self.vis = nn.Sequential(  # os16 -> os4
             nn.Upsample(scale_factor=2, mode='bilinear'),
             conv_layer(in_dim * 2, in_dim * 2, 3, padding=1),
             nn.Upsample(scale_factor=2, mode='bilinear'),
             conv_layer(in_dim * 2, in_dim, 3, padding=1),
-            nn.Conv2d(in_dim, self.inter_dim * self.num_classes , 1)
+            nn.Conv2d(in_dim, in_dim , 1)
         )
         # textual projector
-        text_out_dim = self.inter_dim * kernel_size * kernel_size + 1
+        text_out_dim = in_dim * kernel_size * kernel_size + 1
         self.txt = nn.Linear(word_dim, text_out_dim)
 
     def forward(self, x, word):
@@ -305,29 +303,28 @@ class Projector(nn.Module):
         '''
         x = self.vis(x)
         # B, C * num_classes, 104, 104
-        B, _, H, W = x.size()
-        x = x.transpose(1, 0)
-        x = x.reshape(self.num_classes, B * self.inter_dim, H, W)
+        B, C, H, W = x.size()
+        x = x.reshape(1, B * C, H, W)
         word = self.txt(word)
         weight, bias = word[:, :-1], word[:, -1]
-        weight = weight.reshape(B, self.inter_dim, self.kernel_size, self.kernel_size)
+        weight = weight.reshape(B, C, self.kernel_size, self.kernel_size)
         # combine image and text
         out = F.conv2d(x,
                        weight,
                        padding=self.kernel_size // 2,
                        bias=bias,
                        groups=weight.size(0))
-        out = out.transpose(1, 0)
+        out = out.transpose(0, 1)
         return out
 
 class ScaleGate(nn.Module):
-    def __init__(self, d_model, num_stages):
+    def __init__(self, d_model, num_stages, use_relu=False):
         super().__init__()
         self.d_model = d_model
         self.num_stages = num_stages
         self.layers = nn.Sequential(
             nn.Linear(d_model, d_model),
-            nn.GELU(),
+            nn.ReLU(True) if use_relu else nn.GELU(),
             nn.Linear(d_model, num_stages * d_model),
         )
         self.aggr = conv_layer(num_stages * d_model, d_model, 1, 0)

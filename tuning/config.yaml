@@ -6,15 +6,15 @@ resume:
 early_stop:
 input_size: 224
 word_len: 22
-seed: 2024
+seed: 0
 epochs: 100
 base_lr: 0.0001
-weight_decay: 0.0005
-lr_decay: 0.1
+weight_decay: 0.
 output_dir: exp
-train_batch: 32
+train_batch: 16
 train_worker: 16
-valid_batch: 32
+valid_batch: 16
 valid_worker: 16
 print_freq: 100
-early_stop: 50
+early_stop: 35
+step: pretrain_main

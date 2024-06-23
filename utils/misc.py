@@ -261,8 +261,8 @@ class WandbLogger():
             project,
             mode="online"
         ):
-        add_tsg = 'sg' if self.cfg.tsg else 'base'
-        model_name = f"{self.cfg.exp_name}_{add_tsg}_{self.cfg.dataset}"
+        add_sg = 'sg' if self.cfg.sg else 'base'
+        model_name = f"{self.cfg.exp_name}_{add_sg}_{self.cfg.dataset}"
         wandb.init(
             project=project,
             mode=mode,

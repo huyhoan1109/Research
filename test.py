@@ -21,7 +21,7 @@ cv2.setNumThreads(0)
 def get_parser():
     parser = argparse.ArgumentParser(description='Pytorch Referring Expression Segmentation')
     parser.add_argument('--config', default='path to xxx.yaml', type=str, help='config file')
-    parser.add_argument('--tsg', default=0, type=int, help='add transformer scale gate.')
+    parser.add_argument('--sg', default=0, type=int, help='add scale gate.')
     parser.add_argument('--jit', default=0, type=int, help='jit mode.')
     parser.add_argument('--opts', default=None, nargs=argparse.REMAINDER, help='override some settings in the config.')
     args = parser.parse_args()
@@ -29,7 +29,7 @@ def get_parser():
     cfg = config.load_cfg_from_cfg_file(args.config)
     if args.opts is not None:
         cfg = config.merge_cfg_from_list(cfg, args.opts)
-    cfg.__setattr__('tsg', args.tsg)
+    cfg.__setattr__('sg', args.sg)
     cfg.__setattr__('jit', args.jit)
     cfg.__setattr__('num_classes', 1)
     return cfg

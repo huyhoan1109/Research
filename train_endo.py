@@ -39,7 +39,7 @@ cv2.setNumThreads(0)
 def get_parser():
     parser = argparse.ArgumentParser(description='Pytorch CLIP Endoscopy Segmentation')
     parser.add_argument('--config', default='path to xxx.yaml', type=str, help='config file')
-    parser.add_argument('--tsg', default=0, type=int, help='add transformer scale gate.')
+    parser.add_argument('--sg', default=0, type=int, help='add scale gate.')
     parser.add_argument('--jit', default=0, type=int, help='jit mode.')
     parser.add_argument('--early_stop', default=50, type=int, help='set early stop epoch')
     parser.add_argument('--step', choices=STEPS.keys(), help='Choose step')
@@ -49,7 +49,7 @@ def get_parser():
     cfg = config.load_cfg_from_cfg_file(args.config)
     if args.opts is not None:
         cfg = config.merge_cfg_from_list(cfg, args.opts)
-    cfg.__setattr__('tsg', args.tsg)
+    cfg.__setattr__('sg', args.sg)
     cfg.__setattr__('jit', args.jit)
     cfg.__setattr__('early_stop', args.early_stop)
     cfg.__setattr__('step', args.step)
@@ -173,8 +173,8 @@ def main_worker(gpu, args):
 
     scheduler = CosineAnnealingLR(
         optimizer,
-        T_max = args.batch_size * len(train_loader) * args.epochs,
-        eta_min = args.base_lr * args.lr_decay,
+        T_max = args.epochs,
+        eta_min = args.base_lr / 1000,
     )
 
     best_IoU = 0.0
@@ -224,7 +224,7 @@ def main_worker(gpu, args):
             if iou >= best_IoU and early_epoch > 0:
                 best_IoU = iou
                 early_epoch = args.early_stop
-                model_name = f"best_model_sg.pth" if args.tsg else f"best_model_base.pth"
+                model_name = f"best_model_sg.pth" if args.sg else f"best_model_base.pth"
                 model_path = os.path.join(args.output_dir, model_name)
                 torch.save(
                     {

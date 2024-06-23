@@ -2,9 +2,8 @@ import os
 import torch
 from tqdm import tqdm 
 from utils.misc import AverageMeter, ProgressMeter 
-from tuning.loss import clip_loss
+from tuning.metric import calculate_metric
 from torch.utils.data import RandomSampler
-
 
 def get_sampler(dataset, seed):
     generator = torch.Generator()
@@ -22,18 +21,21 @@ def train_batch(cfg, epoch, model, train_loader, optimizer, scheduler, logger):
     )
     for i, batch in enumerate(train_loader):
         count = batch["image"].size(0)
-        image, text = batch['image'].cuda(), batch['word'].cuda()
-        loss = clip_loss(model, image, text)
+        # image = batch['image']
+        # word = batch['word']
+        image = batch['image'].cuda()
+        word = batch['word'].cuda()
+        result = calculate_metric(model, image, word)
         optimizer.zero_grad()
-        loss.backward()
+        result['loss'].backward()
         optimizer.step()
-        loss_meter.update(loss.item(), count)
+        loss_meter.update(result['loss'].item(), count)
         if (i + 1) % cfg['print_freq'] == 0:
             progress_meter.display(i + 1)
             logger.log(
                 {
+                    'training/lr': scheduler.get_last_lr()[-1],
                     'training/loss': loss_meter.val,
-                    'training/lr': scheduler.get_last_lr()[-1].item(),
                     'training/step': epoch * len(train_loader) + (i + 1)
                 },
                 commit=True
@@ -43,11 +45,15 @@ def train_batch(cfg, epoch, model, train_loader, optimizer, scheduler, logger):
 def validate(model, valid_loader):
     model.eval()
     loss_meter = AverageMeter('Eval loss')
-    for i, batch in enumerate(valid_loader):
+    tbar = tqdm(valid_loader, desc='Eval:', ncols=100)
+    for i, batch in enumerate(tbar):
         count = batch["image"].size(0)
-        image, text = batch['image'].cuda(), batch['word'].cuda()
-        loss = clip_loss(model, image, text)
-        loss_meter.update(loss.item(), count)
+        # image = batch['image']
+        # word = batch['word']
+        image = batch['image'].cuda()
+        word = batch['word'].cuda()
+        result = calculate_metric(model, image, word)
+        loss_meter.update(result['loss'].item(), count)
     print(f"Valid loss: {loss_meter.avg}")
     return loss_meter.avg
 
@@ -59,7 +65,7 @@ def load_checkpoint(cfg, model, optimizer, scheduler):
     return checkpoint['epoch'], checkpoint['loss']
 
 def save_checkpoint(cfg, epoch_log, loss, model, optimizer, scheduler):
-    model_path = os.path.join(cfg['output_dir'], f"{cfg['prefix_name']}_best_model.pth")
+    model_path = os.path.join(cfg['output_dir'], f"{cfg['prefix_name']}_{cfg['step']}_best_clip.pth")
     torch.save(
         {
             'epoch': epoch_log,
@@ -71,7 +77,7 @@ def save_checkpoint(cfg, epoch_log, loss, model, optimizer, scheduler):
         model_path
     )
 
-def train_model(cfg, model, loaders, optimizer, scheduler, logger):
+def train_model(cfg, model, loaders, optimizer, scheduler, logger): 
     if cfg['resume']:
         start_epoch, best_loss = load_checkpoint(cfg, model, optimizer, scheduler)
     else:

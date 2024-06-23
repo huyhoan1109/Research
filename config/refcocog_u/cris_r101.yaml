@@ -33,11 +33,10 @@ TRAIN:
   batch_size: 32  # batch size for training
   batch_size_val: 32  # batch size for validation during training, memory and speed tradeoff
   base_lr: 0.0001
-  lr_decay: 0.1
   lr_multi: 0.1
-  weight_decay: 0.0005
+  weight_decay: 0.
   max_norm: 0.
-  manual_seed: 2024
+  manual_seed: 0
   print_freq: 100
   # Resume & Save
   exp_name: CRIS_R101

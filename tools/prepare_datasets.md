@@ -1,8 +1,6 @@
-## Prepare datasets
+The config file use `datasets` as default dataset folder so make sure to create it.
 
-In our paper, we conduct experiments on three common-used datasets, including Ref-COCO, Ref-COCO+ and G-Ref.
-
-### 1. COCO 2014
+### 1. COCO 2014 (Prepare images) 
 
 The data could be found at [here](https://cocodataset.org/#download). Please run the following commands to download.
 
@@ -16,7 +14,7 @@ unzip train2014.zip -d images/ && rm train2014.zip
 
 ```
 
-### 2. Ref-COCO
+### 2. Ref-COCO (Prepare texts)
 
 The data could be found at [here](https://github.com/lichengunc/refer). Please run the following commands to download and convert.
 
@@ -41,7 +39,7 @@ rm -r refcoco
 
 ```
 
-### 3. Ref-COCO+
+### 3. Ref-COCO+ (Prepare texts)
 
 The data could be found at [here](https://github.com/lichengunc/refer). Please run the following commands to download and convert.
 
@@ -66,7 +64,7 @@ rm -r refcoco+
 
 ```
 
-### 4. Ref-COCOg
+### 4. G-Ref
 
 The data could be found at [here](https://github.com/lichengunc/refer). Please run the following commands to download and convert.
 (Note that we adopt two different splits of this dataset, 'umd' and 'google'.)

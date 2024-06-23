@@ -39,6 +39,7 @@ def get_args():
     parser.add_argument('--run_id', nargs='?', help='log run id')
     parser.add_argument('--continue_training', nargs='?', help='continue logging')
     parser.add_argument('--early_stop', default=50, type=int, help='early stop')
+    parser.add_argument('--step', default='pretrain_main', type=str, help='choose train step')
     args = parser.parse_args()
     yaml_cfg = load_yaml(args.config)
     cfg = load_config(args, yaml_cfg)
@@ -46,7 +47,7 @@ def get_args():
 
 def build_clip(cfg):
     weight = torch.jit.load(cfg['clip_pretrain'])
-    return build_model(weight.state_dict()).float().cuda()
+    return build_model(weight.state_dict(), args['word_len']).float().cuda()
 
 def init_logger(args):
     wandb.login(key=ENV_VAR['API_KEY'])
@@ -62,15 +63,17 @@ def init_logger(args):
     wlogger.define_metric('eval/step')
     wlogger.define_metric(
         'training/loss', step_metric='training/step'
-        'training/lr', step_metric='training/step'
+    )
+    wlogger.define_metric(
+        'training/loss', step_metric='training/step'
     )
     wlogger.define_metric(
         'eval/loss', step_metric='eval/step'
     )
     return wlogger
 
-def finish_logger():
-    wandb.finish()
+def finish_logger(wlogger):
+    wlogger.finish()
 
 if __name__ == '__main__':
     args = get_args()
@@ -82,14 +85,14 @@ if __name__ == '__main__':
         input_size=args['input_size'],
         word_length=args['word_len'],
         split='train',
-        step='pretrain_clip'
+        step=args['step']
     )
 
     valid_data = EndosDataset(
         input_size=args['input_size'],
         word_length=args['word_len'],
         split='test',
-        step='pretrain_clip'
+        step=args['step']
     )
 
     train_sampler = get_sampler(train_data, args['seed'])
@@ -122,9 +125,9 @@ if __name__ == '__main__':
 
     scheduler = CosineAnnealingLR(
         optimizer,
-        T_max = args['train_worker'] * len(train_loader) * args['epochs'],
-        eta_min = args['base_lr'] * args['lr_decay']
+        T_max = args['epochs'],
+        eta_min = args['base_lr'] / 1000
     )
 
     train_model(args, model, loaders, optimizer, scheduler, logger)
-    finish_logger()
+    finish_logger(logger)
