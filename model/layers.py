@@ -294,6 +294,5 @@ class Projector(nn.Module):
                        groups=weight.size(0),
                        bias=bias)
         out = out.transpose(0, 1)
-        # b, num_classes, 104, 104
         return out
 

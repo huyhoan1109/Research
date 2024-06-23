@@ -8,6 +8,7 @@ from model.backbone.base import conv_layer, linear_layer, CoordConv
 
 class TransformerDecoder(nn.Module):
     def __init__(self,
+                 cfg,
                  num_stages,
                  num_layers,
                  d_model,
@@ -18,6 +19,7 @@ class TransformerDecoder(nn.Module):
         super().__init__()
         self.decoder_layers = nn.ModuleList([
             TransformerDecoderLayer(
+                cfg=cfg,
                 num_stages=num_stages,
                 d_model=d_model,
                 nhead=nhead,
@@ -117,6 +119,7 @@ class TransformerDecoder(nn.Module):
 
 class TransformerDecoderLayer(nn.Module):
     def __init__(self,
+                 cfg,
                  num_stages,
                  d_model=512,
                  nhead=9,
@@ -132,7 +135,7 @@ class TransformerDecoderLayer(nn.Module):
         self.vis_txt_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, kdim=d_model, vdim=d_model)
         
         # Scale gate
-        self.scale_gate = ScaleGate(d_model, num_stages)
+        self.scale_gate = ScaleGate(cfg, d_model, num_stages)
         
         # FFN
         self.ffn = nn.Sequential(
@@ -302,7 +305,6 @@ class Projector(nn.Module):
             word: b, 512
         '''
         x = self.vis(x)
-        # B, C * num_classes, 104, 104
         B, C, H, W = x.size()
         x = x.reshape(1, B * C, H, W)
         word = self.txt(word)
@@ -318,13 +320,13 @@ class Projector(nn.Module):
         return out
 
 class ScaleGate(nn.Module):
-    def __init__(self, d_model, num_stages, use_relu=False):
+    def __init__(self, cfg, d_model, num_stages):
         super().__init__()
         self.d_model = d_model
         self.num_stages = num_stages
         self.layers = nn.Sequential(
             nn.Linear(d_model, d_model),
-            nn.ReLU(True) if use_relu else nn.GELU(),
+            nn.ReLU(True) if cfg.use_relu else nn.GELU() ,
             nn.Linear(d_model, num_stages * d_model),
         )
         self.aggr = conv_layer(num_stages * d_model, d_model, 1, 0)
@@ -341,6 +343,3 @@ class ScaleGate(nn.Module):
         product = F.softmax(x, dim=1) * r_feats
         output = self.coordconv(self.aggr(product))
         return output.reshape(B, C, -1).permute(2, 0, 1)
-
-
-

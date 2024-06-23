@@ -38,6 +38,7 @@ def get_parser():
     parser.add_argument('--sg', default=0, type=int, help='add scale gate.')
     parser.add_argument('--jit', default=0, type=int, help='jit mode.')
     parser.add_argument('--early_stop', default=50, type=int, help='set early stop epoch')
+    parser.add_argument('--use_relu', default=0, type=int, help='use relu scale gate.')
     parser.add_argument('--opts', default=None, nargs=argparse.REMAINDER, help='override some settings in the config.')
     args = parser.parse_args()
     assert args.config is not None
@@ -47,7 +48,7 @@ def get_parser():
     cfg.__setattr__('sg', args.sg)
     cfg.__setattr__('jit', args.jit)
     cfg.__setattr__('early_stop', args.early_stop)
-    cfg.__setattr__('num_classes', 1)
+    cfg.__setattr__('use_relu', args.use_relu)
     return cfg
 
 

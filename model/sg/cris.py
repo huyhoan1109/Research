@@ -18,6 +18,7 @@ class CRIS(nn.Module):
         
         # Decoder
         self.decoder = TransformerDecoder(
+            cfg,
             num_stages=len(cfg.fpn_in),
             num_layers=cfg.num_layers,
             d_model=cfg.vis_dim,
