@@ -172,7 +172,7 @@ def main_worker(gpu, args):
     scheduler = CosineAnnealingLR(
         optimizer,
         T_max = args.epochs,
-        eta_min = args.base_lr / 1000,
+        eta_min = args.base_lr / args.epochs,
     )
 
     best_IoU = 0.0
