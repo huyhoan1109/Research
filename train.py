@@ -39,6 +39,7 @@ def get_parser():
     parser.add_argument('--jit', default=0, type=int, help='jit mode.')
     parser.add_argument('--early_stop', default=50, type=int, help='set early stop epoch')
     parser.add_argument('--use_relu', default=0, type=int, help='use relu scale gate.')
+    parser.add_argument('--store_last', default=1, type=int, help='store last model.')
     parser.add_argument('--opts', default=None, nargs=argparse.REMAINDER, help='override some settings in the config.')
     args = parser.parse_args()
     assert args.config is not None
@@ -49,6 +50,7 @@ def get_parser():
     cfg.__setattr__('jit', args.jit)
     cfg.__setattr__('early_stop', args.early_stop)
     cfg.__setattr__('use_relu', args.use_relu)
+    cfg.__setattr__('store_last', args.store_last)
     return cfg
 
 
@@ -234,6 +236,20 @@ def main_worker(gpu, args):
                     model_path
                 )
             else:
+                if args.store_last:
+                    model_name = f"last_model_sg.pth" if args.sg else f"last_model_base.pth"
+                    model_path = os.path.join(args.output_dir, model_name)
+                    torch.save(
+                        {
+                            'epoch': epoch_log,
+                            'iou': iou,
+                            'prec': prec_dict,
+                            'state_dict': model.state_dict(),
+                            'optimizer': optimizer.state_dict(),
+                            'scheduler': scheduler.state_dict()
+                        }, 
+                        model_path
+                    )
                 early_epoch -= 1
                 if early_epoch == 0:
                     break
