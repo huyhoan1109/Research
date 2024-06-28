@@ -125,9 +125,8 @@ if __name__ == '__main__':
 
     scheduler = CosineAnnealingLR(
         optimizer,
-        T_max = args['epochs'],
-        eta_min = args['base_lr'] / args['epochs']
+        T_max = len(train_loader) * args['epochs'],
+        eta_min = args['base_lr'] / 1000,
     )
-
     train_model(args, model, loaders, optimizer, scheduler, logger)
     finish_logger(logger)

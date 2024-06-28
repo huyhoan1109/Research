@@ -91,6 +91,7 @@ def train(train_loader, model, optimizer, scheduler, scaler, epoch, args, wlogge
                         "training/step": epoch * len(train_loader) + (i + 1)
                     }
                 )
+        scheduler.step()
 
 
 @torch.no_grad()

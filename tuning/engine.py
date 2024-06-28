@@ -40,7 +40,7 @@ def train_batch(cfg, epoch, model, train_loader, optimizer, scheduler, logger):
                 },
                 commit=True
             )
-    scheduler.step()
+        scheduler.step()
 
 def validate(model, valid_loader):
     model.eval()

@@ -125,8 +125,8 @@ def main_worker(args):
 
     scheduler = CosineAnnealingLR(
         optimizer,
-        T_max = args.epochs,
-        eta_min = args.base_lr / args.epochs
+        T_max = len(train_loader) * args.epochs,
+        eta_min = args.base_lr / 1000,
     )
 
     best_IoU = 0.0
@@ -190,9 +190,6 @@ def main_worker(args):
             early_epoch -= 1
             if early_epoch == 0:
                 break
-
-        # update lr
-        scheduler.step(epoch_log)
     torch.cuda.empty_cache()
 
     wlogger.finish()
